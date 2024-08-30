@@ -18,10 +18,9 @@ Este repositório contém o trabalho final da disciplina CPS769 - Introdução �
 ## Requisitos
 
 - Python 3.x
-- TensorFlow
-- NumPy
-- Matplotlib
 - Pandas
+- Seaborn
+- SQLite3
 - Scikit-Learn
 - Lang Chain
 - Django
