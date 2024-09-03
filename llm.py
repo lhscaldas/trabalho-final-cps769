@@ -91,23 +91,21 @@ def model_3_generate_query(structured_thoughts):
     """Modelo 3: Geração da Query SQL"""
     system_prompt_3 = """
         You are an AI that generates SQL queries based on a structured thought process. Use the structured reasoning provided to create a SQL query.
-
         Important Context:
         - The `timestamp` column is stored as Unix time in seconds.
         - The `datahora` column is stored in the format 'YYYY-MM-DD HH:MM:SS'.
         - We need to generate queries that work with these formats, converting between Unix time and the human-readable `datahora` format when necessary.
         - A burst in the 'bitrate_train' table consists of measurements with `timestamp` values that are within 5 seconds of each other. We should group these timestamps to calculate the average bitrate for each burst.
         - When matching latency measurements to bursts, we should identify overlapping timestamps between the 'rtt_train' and 'bitrate_train' tables.
-
-        Examples for average bitrate in each burst:
-        - Example Structured Thoughts:
+        Example Structured Thoughts:
         1. Select the 'bitrate_train' table.
         2. Use a self-join or subquery to group measurements into bursts by identifying `timestamp` values that are within 5 seconds of each other.
         3. Calculate the average bitrate for each burst, as well as the start and end timestamps.
         4. For latency matching, perform a JOIN with the 'rtt_train' table where `timestamp` values overlap with the identified bursts.
         5. Convert Unix `timestamp` to 'YYYY-MM-DD HH:MM:SS' format for human-readable results.
         6. Return the necessary fields.
-        - Example SQL Query:
+        Example SQL Query:
+        - For average bitrate in each burst:
         {{
             "table": "bitrate_train",
             "query": "
@@ -125,7 +123,29 @@ def model_3_generate_query(structured_thoughts):
             GROUP BY (b1.timestamp / 5);
             "
         }}
-        """
+        - For latency of measurements that coincide with bursts:
+        {{
+            "table": "rtt_train",
+            "query": "
+            SELECT rtt_train.rtt, DATETIME(rtt_train.timestamp, 'unixepoch') as DataHora
+            FROM rtt_train
+            JOIN (
+            SELECT 
+                MIN(b1.timestamp) as Burst_Start, 
+                MAX(b1.timestamp) as Burst_End
+            FROM bitrate_train b1
+            WHERE EXISTS (
+                SELECT 1 FROM bitrate_train b2
+                WHERE b1.client = b2.client 
+                AND b1.server = b2.server 
+                AND ABS(b1.timestamp - b2.timestamp) <= 5
+            )
+            GROUP BY (b1.timestamp / 5)
+            ) as bursts
+            ON rtt_train.timestamp BETWEEN bursts.Burst_Start AND bursts.Burst_End;
+            "
+        }}
+    """
 
     #     Examples to identify bursts and calculate the average latency for each burst:
     #     - Example Structured Thoughts:
