@@ -31,7 +31,7 @@ class NaturalLanguageResponse(BaseModel):
 
 def model_1_understand_question(question):
     """Modelo 1: Compreensão da Pergunta"""
-    system_prompt = """
+    system_prompt_1 = """
         You are an AI that understands questions related to databases, specifically focusing on network measurements stored in SQL tables. Your job is to understand the user's question, considering the specific context of the data, and determine the necessary logical steps to answer it.
 
         Important Context:
@@ -53,14 +53,14 @@ def model_1_understand_question(question):
             3. Return these latency measurements.
     """
     
-    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("human", "{input}")])
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt_1), ("human", "{input}")])
     logical_steps_llm = prompt | llm.with_structured_output(LogicalSteps)
     logical_steps = logical_steps_llm.invoke(question)
     return logical_steps
 
 def model_2_structure_thoughts(logical_steps):
     """Modelo 2: Estruturação do Pensamento"""
-    system_prompt = """
+    system_prompt_2 = """
         You are an AI that structures thought processes for constructing SQL queries. Based on the logical steps provided, outline a structured reasoning process that will lead to the creation of the SQL query.
 
         Important Context:
@@ -82,14 +82,14 @@ def model_2_structure_thoughts(logical_steps):
         5. Construct the final SQL query using these steps.
     """
     
-    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("human", "{input}")])
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt_2), ("human", "{input}")])
     structured_thoughts_llm = prompt | llm.with_structured_output(StructuredThoughts)
     structured_thoughts = structured_thoughts_llm.invoke(logical_steps.steps)
     return structured_thoughts
 
 def model_3_generate_query(structured_thoughts):
     """Modelo 3: Geração da Query SQL"""
-    system_prompt = """
+    system_prompt_3 = """
         You are an AI that generates SQL queries based on a structured thought process. Use the structured reasoning provided to create a SQL query.
 
         Important Context:
@@ -99,16 +99,15 @@ def model_3_generate_query(structured_thoughts):
         - A burst in the 'bitrate_train' table consists of measurements with `timestamp` values that are within 5 seconds of each other. We should group these timestamps to calculate the average bitrate for each burst.
         - When matching latency measurements to bursts, we should identify overlapping timestamps between the 'rtt_train' and 'bitrate_train' tables.
 
-        Example Structured Thoughts:
+        Examples for average bitrate in each burst:
+        - Example Structured Thoughts:
         1. Select the 'bitrate_train' table.
         2. Use a self-join or subquery to group measurements into bursts by identifying `timestamp` values that are within 5 seconds of each other.
         3. Calculate the average bitrate for each burst, as well as the start and end timestamps.
         4. For latency matching, perform a JOIN with the 'rtt_train' table where `timestamp` values overlap with the identified bursts.
         5. Convert Unix `timestamp` to 'YYYY-MM-DD HH:MM:SS' format for human-readable results.
         6. Return the necessary fields.
-
-        Example SQL Query:
-        - For average bitrate in each burst:
+        - Example SQL Query:
         {{
             "table": "bitrate_train",
             "query": "
@@ -126,32 +125,46 @@ def model_3_generate_query(structured_thoughts):
             GROUP BY (b1.timestamp / 5);
             "
         }}
+        """
 
-        - For latency of measurements that coincide with bursts:
-        {{
-            "table": "rtt_train",
-            "query": "
-            SELECT rtt_train.rtt, DATETIME(rtt_train.timestamp, 'unixepoch') as DataHora
-            FROM rtt_train
-            JOIN (
-            SELECT 
-                MIN(b1.timestamp) as Burst_Start, 
-                MAX(b1.timestamp) as Burst_End
-            FROM bitrate_train b1
-            WHERE EXISTS (
-                SELECT 1 FROM bitrate_train b2
-                WHERE b1.client = b2.client 
-                AND b1.server = b2.server 
-                AND ABS(b1.timestamp - b2.timestamp) <= 5
-            )
-            GROUP BY (b1.timestamp / 5)
-            ) as bursts
-            ON rtt_train.timestamp BETWEEN bursts.Burst_Start AND bursts.Burst_End;
-            "
-        }}
-    """
+    #     Examples to identify bursts and calculate the average latency for each burst:
+    #     - Example Structured Thoughts:
+    #     1. Select the 'bitrate_train' table and filter the data between 08:00 and 09:00 on 07/06/2024, for the client 'rj' and server 'pi'.
+    #     2. Use a self-join to create groups (bursts) where the difference between consecutive timestamps is 5 seconds or less.
+    #     3. For each burst, determine the `timestamp` of the start (minimum) and end (maximum) of the burst.
+    #     4. Use these `timestamp` intervals to filter the `rtt_train` table and calculate the average `rtt` for each burst interval.
+    #     5. Return the `datahora` interval and the average `rtt`.
+    #     - Example SQL Query:
+    #     {{
+    #         "table": "bitrate_train",
+    #         "query": "
+    #         WITH bursts AS (
+    #         SELECT 
+    #             MIN(b1.timestamp) AS Burst_Start,
+    #             MAX(b1.timestamp) AS Burst_End,
+    #             MIN(b1.datahora) AS Burst_Start_Time,
+    #             MAX(b1.datahora) AS Burst_End_Time
+    #         FROM bitrate_train b1
+    #         JOIN bitrate_train b2 ON b1.client = b2.client 
+    #             AND b1.server = b2.server 
+    #             AND b1.timestamp BETWEEN b2.timestamp AND b2.timestamp + 5
+    #         WHERE b1.client = 'rj'
+    #         AND b1.server = 'pi'
+    #         AND b1.timestamp BETWEEN strftime('%s', '2024-06-07 08:00:00') AND strftime('%s', '2024-06-07 09:00:00')
+    #         GROUP BY b1.timestamp
+    #         )
+    #         SELECT 
+    #             bursts.Burst_Start_Time,
+    #             bursts.Burst_End_Time,
+    #             AVG(rtt.rtt) as Avg_RTT
+    #         FROM rtt_train rtt
+    #         JOIN bursts ON rtt.timestamp BETWEEN bursts.Burst_Start AND bursts.Burst_End
+    #         GROUP BY bursts.Burst_Start_Time, bursts.Burst_End_Time;
+    #         "
+    #     }}
+    # """
     
-    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("human", "{input}")])
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt_3), ("human", "{input}")])
     database_query_llm = prompt | llm.with_structured_output(DatabaseQuery)
     final_query = database_query_llm.invoke(structured_thoughts.structured_steps)
     return final_query
@@ -170,7 +183,7 @@ def model_4_nl_response(question, query_result):
     """Gera uma resposta em linguagem natural baseada na pergunta e no resultado da query."""
     result_str = query_result.to_string(index=False)
     
-    nl_system_prompt = """You are an expert in network performance data analysis. You provide concise and clear natural language responses based on the user's query and the result of the data analysis.
+    system_prompt_4 = """You are an expert in network performance data analysis. You provide concise and clear natural language responses based on the user's query and the result of the data analysis.
 
     Here are some examples:
 
@@ -183,15 +196,15 @@ def model_4_nl_response(question, query_result):
     example_user: Medida da latência que coincide com uma rajada de bitrate?
     example_assistant: A latência mínima que coincide com uma rajada de bitrate foi de [Latency] ms para o par cliente-servidor [client]-[server] no timestamp [timestamp]."""
 
-    nl_prompt = ChatPromptTemplate.from_messages([("system", nl_system_prompt), ("human", "{input}")])
+    nl_prompt = ChatPromptTemplate.from_messages([("system", system_prompt_4), ("human", "{input}")])
     nl_structured_llm = nl_prompt | llm.with_structured_output(NaturalLanguageResponse)
     
     response = nl_structured_llm.invoke({"input": f"Pergunta: {question}\nResultado: {result_str}"})
     return response.response
 
 if __name__ == "__main__":
-    # question = "Qual a média da taxa de bitrate para o cliente rj e servidor pi para cada rajada entre 8 e 9h do dia 07/06/2024?"
-    question = "Qual a latência das medições que coincidem com cada rajada de bitrate para o cliente rj e servidor pi entre 8 e 9h do dia 07/06/2024?"
+    question = "Qual a média da taxa de bitrate para o cliente rj e servidor pi para cada rajada entre 8 e 9h do dia 07/06/2024?"
+    # question = "Qual a latência média das medições que coincidem com cada rajada de bitrate para o cliente rj e servidor pi entre 8 e 9h do dia 07/06/2024?"
     logical_steps = model_1_understand_question(question)
     print(logical_steps)
     structured_thoughts = model_2_structure_thoughts(logical_steps)
