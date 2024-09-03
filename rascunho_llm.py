@@ -42,7 +42,9 @@ prompt = ChatPromptTemplate.from_messages([("system", system), ("human", "{input
 
 few_shot_structured_llm = prompt | structured_llm
 
-few_shot_structured_llm.invoke("what's something funny about woodpeckers")
+response = few_shot_structured_llm.invoke("what's something funny about woodpeckers")
+
+print(response)
 
 
 

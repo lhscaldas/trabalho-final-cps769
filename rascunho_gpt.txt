@@ -1,75 +1,46 @@
-Eu tenho um dataset composto por um banco de dados em sqlite. Ele possui 4 tabelas, bitrate_test, bitrate_train, rtt_test e rtt_train. Ignore por enquanto as tabelas _test e foque apenas nas _train. Segue abaixo o header delas. 
+A função abaixo deve gerar querries sql para responder perguntas que recebe na forma de linguagem natural. Porém ela não está funcionando, pois está reclamando da entrada dos dados. Melhore o system_prompt, aumentando a quantidade de exemplos e melhorando os existentes. Deixe ela bem genérica para que possa responder uma ampla gama de perguntas sobre o banco de dados.
 
-client,server,timestamp,bitrate
-ba,ce,1717718915,3000
-ba,ce,1717718916,66910
-ba,ce,1717718916,294878
-ba,ce,1717718916,351151
-ba,ce,1717718916,329464
-ba,ce,1717718916,388265
+class DatabaseQuery(BaseModel):
+    """Structure for database queries."""
+    table: str = Field(description="The name of the table to be read from the database")
+    query: str = Field(description="The SQL query to fetch data from the database")
 
-client,server,timestamp,rtt
-ba,ce,1717718941,12.52
-ba,ce,1717719217,12.59
-ba,ce,1717719722,12.49
-ba,ce,1717719841,12.49
-ba,ce,1717720185,12.48
+def process_query(question):
+    """Processa a pergunta e retorna o resultado da query e a estrutura da query."""
+    system_prompt = """You are an expert in network performance data analysis. You understand the format of the SQLite database: trabalho_raw.db with tables bitrate_train and rtt_train.
 
-O bitrate é medido em rajadas para cada par cliente-servidor (cerca de 15 medidas com o mesmo timestamp). Já a latência (rtt) é medida em intervalos não-uniformes.
+    You can extract dates from user queries, convert them to UTC timestamps (in seconds), and generate the corresponding SQL queries.
 
+    Here are some examples of queries and their structured responses:
 
-Modifique o código abaixo para criar um programa utilizando lang chain que receba do usuário uma pergunta em linguagem natural, gere a query sql necessária para pesquise na tabela correta e responda o usuário em linguagem natural. Utilize o conceito de Chain of Thoughts.
+    example_user: Qual foi o cliente com maior bitrate?
+    example_assistant: {"table": "bitrate_train", "query": "SELECT client, MAX(bitrate) as Max_Bitrate FROM bitrate_train GROUP BY client ORDER BY Max_Bitrate DESC LIMIT 1"}
 
-from langchain_openai import ChatOpenAI
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate
-from typing import Union, Optional
-import os
-from env import OPENAI_API_KEY # key armazenada em um arquivo que está no .gitignore para manter o sigilo
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+    example_user: Média da taxa de bitrate em cada rajada para cada par cliente-servidor?
+    example_assistant: {"table": "bitrate_train", "query": "SELECT client, server, timestamp, AVG(bitrate) as Avg_Bitrate FROM bitrate_train GROUP BY client, server, timestamp"}
 
-class Joke(BaseModel):
-    """Joke to tell user."""
-    setup: str = Field(description="The setup of the joke")
-    punchline: str = Field(description="The punchline to the joke")
-    rating: Optional[int] = Field(description="How funny the joke is, from 1 to 10")
+    example_user: Média da taxa de bitrate para o cliente rj e servidor pi no dia 07/06/2024?
+    example_assistant: 
+    {
+        "table": "bitrate_train",
+        "query": "SELECT client, server, timestamp, AVG(bitrate) as Avg_Bitrate FROM bitrate_train WHERE client = 'rj' AND server = 'pi' AND timestamp BETWEEN {timestamp_inicial} AND {timestamp_final} GROUP BY client, server, timestamp"
+    }
 
-class ConversationalResponse(BaseModel):
-    """Respond in a conversational manner. Be kind and helpful."""
+    When the user asks a question that includes a date, extract the date and convert it to a UTC timestamp (in seconds). Use this timestamp in the SQL query.
+    """
 
-    response: str = Field(description="A conversational response to the user's query")
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("human", question)])
+    few_shot_structured_llm = prompt | llm.with_structured_output(DatabaseQuery)
+    table_and_query = few_shot_structured_llm.invoke({"input": question})
 
-class Response(BaseModel):
-    output: Union[Joke, ConversationalResponse]
+    timestamp_inicial, timestamp_final = extract_date_from_question(question)
+    if timestamp_inicial and timestamp_final:
+        query_str = table_and_query.query.replace("{timestamp_inicial}", str(timestamp_inicial)).replace("{timestamp_final}", str(timestamp_final))
+    else:
+        query_str = table_and_query.query
 
-llm = ChatOpenAI(model="gpt-4o-mini")
-
-structured_llm = llm.with_structured_output(Joke)
-
-system = """You are a hilarious comedian. Your specialty is knock-knock jokes. \
-Return a joke which has the setup (the response to "Who's there?") and the final punchline (the response to "<setup> who?").
-
-Here are some examples of jokes:
-
-example_user: Tell me a joke about planes
-example_assistant: {{"setup": "Why don't planes ever get tired?", "punchline": "Because they have rest wings!", "rating": 2}}
-
-example_user: Tell me another joke about planes
-example_assistant: {{"setup": "Cargo", "punchline": "Cargo 'vroom vroom', but planes go 'zoom zoom'!", "rating": 10}}
-
-example_user: Now about caterpillars
-example_assistant: {{"setup": "Caterpillar", "punchline": "Caterpillar really slow, but watch me turn into a butterfly and steal the show!", "rating": 5}}"""
-
-prompt = ChatPromptTemplate.from_messages([("system", system), ("human", "{input}")])
-
-few_shot_structured_llm = prompt | structured_llm
-
-few_shot_structured_llm.invoke("what's something funny about woodpeckers")
-
-A LLM deverá ser capaz, entre outras coisas, de responder 2 tipos de perguntas:
-- Média da taxa de bitrate em cada rajada para cada para par cliente-servidor.
-
-- Medida da latência que coincide com uma rajada de bitrate. 
+    query_result = execute_sql_query(query_str)
+    return query_result, table_and_query
 
 
 
