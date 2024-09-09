@@ -14,7 +14,83 @@ bitrate train.csv: contém medições da taxa de transmissão (bitrate) de víde
 – Coluna 4: rtt (em ms)
 - Coluna 5: datahora
 
-Uma LLM  deverá ser capaz de 
+Uma LLM  deverá ser capaz de interpretar perguntas em linguagem natural sobre esse banco de dados, utilizando o conceito de Chain of Thought. O primeiro modelo da cadeia deverá quebrar as perguntas dos usuários em passos lógicos ordenados, como os exemplos abaixo:
+
+1. Cliente com a Pior QoE
+Exemplo de Pergunta: “Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?”
+1. Analise a pergunta e reconheça que ela envolve a identificação de uma definição sobre o que é qualidade (QoE) e como é calculada.
+2. Analise a pergunta e reconheça que ela envolve a identificação do cliente com a menor QoE.
+3. Calcule a QoE para cada cliente e determine qual cliente tem a menor média de QoE.
+4. Retorne o ID do cliente com uma explicação de como o resultado foi calculado.
+
+2. Servidor com a QoE Mais Consistente
+Exemplo de Pergunta: “Qual servidor fornece a QoE mais consistente?”
+1. Analise a pergunta e entenda que consistência se refere à baixa variação de QoE ao longo do tempo.
+2. Calcule a variância da QoE para cada servidor com base em todos os clientes conectados a ele.
+3. Identifique e retorne o servidor com a menor variância de QoE.
+
+3. Melhor Estratégia de Troca de Servidor para um Cliente
+Exemplo de Pergunta: “Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente X?”
+1. Analise a pergunta para entender que ela envolve calcular a QoE para vários servidores em diferentes momentos.
+2. Use CoT para determinar a QoE de todos os servidores aos quais o cliente pode se conectar.
+3. Recomende a melhor estratégia de troca identificando o servidor com a melhor QoE em cada timestamp.
+4. Retorne o plano de troca recomendado e explique como ele foi derivado.
+
+4. Efeito da Mudança de Latência na QoE
+Exemplo de Pergunta: “Se a latência aumentar 20%, como isso afeta a QoE do cliente Y?”
+1. Analise a pergunta e identifique que é necessário ajustar os valores de latência para um cliente específico.
+2. Recalcule a QoE usando os valores de latência modificados e retorne os resultados.
+3. Explique como a mudança na latência impacta a QoE do cliente.
+
+Com essas informações, adapte o código abaixo para que ele faça a função desse primeiro modelo, levando em consideração na variável system_prompt_1 os exemplos fornecidos:
+
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+import os
+from env import OPENAI_API_KEY
+
+# Configuração da chave de API
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+
+# Inicialização do modelo de linguagem
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0
+    )
+
+class LogicalSteps(BaseModel):
+    """Estrutura para os passos lógicos necessários."""
+    steps: str = Field(description="Passos lógicos necessários para responder à pergunta")
+
+def model_1_understand_question(question):
+    """Modelo 1: Compreensão da Pergunta"""
+    system_prompt_1 = """
+        You are an AI that understands questions related to databases, specifically focusing on network measurements stored in SQL tables. Your job is to understand the user's question, considering the specific context of the data, and determine the necessary logical steps to answer it.
+
+        Important Context:
+        - The 'bitrate' is stored in the 'bitrate_train' table and is measured in bursts. A burst is defined by measurements with very close timestamps (less than 5 seconds apart). When calculating an average for a burst, it refers to the average bitrate within this short time interval.
+        - Latency is stored in the 'rtt' column of the 'rtt_train' table and is measured continuously but irregularly over time, without bursts.
+
+        Given these details, analyze the user's question, determine what needs to be calculated, and outline the logical steps needed to construct the appropriate SQL query.
+
+        Examples:
+        - User: What is the average bitrate rate in each burst?
+        AI: The user is asking for the average bitrate within each burst. The logical steps are:
+            1. Identify bursts in the 'bitrate_train' table by grouping measurements that occur within 5 seconds of each other.
+            2. Calculate the average bitrate for each identified burst.
+        
+        - User: What is the latency of measurements that coincide with a burst?
+        AI: The user is asking to find the latency (from the 'rtt_train' table) that matches the time intervals of bursts identified in the 'bitrate_train' table. The logical steps are:
+            1. Identify bursts in the 'bitrate_train' table.
+            2. For each burst, find the corresponding latency measurements in the 'rtt_train' table based on overlapping timestamps.
+            3. Return these latency measurements.
+    """
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt_1), ("human", "{input}")])
+    logical_steps_llm = prompt | llm.with_structured_output(LogicalSteps)
+    logical_steps = logical_steps_llm.invoke(question)
+    return logical_steps
 
 
 
