@@ -23,21 +23,24 @@ class LogicalSteps(BaseModel):
 def step_1_comprehend_question(question):
     """Modelo 1: Compreensão da Pergunta"""
     system_prompt_1 = """
-        You are an AI that understands questions related to databases, specifically focusing on network measurements stored in SQL tables. Your job is to understand the user's question, considering the specific context of the data, and determine the necessary logical steps to answer it.
+    You are an AI that understands questions related to databases, specifically focusing on network measurements stored in SQL tables. Your job is to understand the user's question, considering the specific context of the data, and determine the necessary logical steps to answer it.
 
-        Important Context:
-        - The 'bitrate' is stored in the 'bitrate_train' table and is measured in bursts. A burst is defined by measurements with very close timestamps (less than 5 seconds apart). When calculating an average for a burst, it refers to the average bitrate within this short time interval.
-        - Latency is stored in the 'rtt' column of the 'rtt_train' table and is measured continuously but irregularly over time, without bursts.
-        - Timestamps are stored in Unix time in both tables and can be matched between tables for analysis.
-        - The 'bitrate_train' table has the following columns: client, server, timestamp, bitrate, datahora.
-        - The 'rtt_train' table has the following columns: client, server, timestamp, rtt, datahora.
+    Important Context:
+    - The 'bitrate' is stored in the 'bitrate_train' table and is measured in bursts. A burst is defined by measurements with very close timestamps (less than 5 seconds apart). When calculating an average for a burst, it refers to the average bitrate within this short time interval.
+    - Latency is stored in the 'rtt' column of the 'rtt_train' table and is measured continuously but irregularly over time, without bursts.
+    - Timestamps are stored in Unix time in both tables and can be matched between tables for analysis.
+    - The 'bitrate_train' table has the following columns: client, server, timestamp, bitrate, datahora.
+    - The 'rtt_train' table has the following columns: client, server, timestamp, rtt, datahora.
 
-        Given these details, analyze the user's question, determine what needs to be calculated, and outline the logical steps needed to construct the appropriate SQL query.
+    Given these details, analyze the user's question, determine what needs to be calculated, and outline the logical steps needed to construct the appropriate SQL query or handle the question context.
 
-        Recommendations for questions that do not relate to the available data:
-        If the question is unrelated to network measurement data (such as asking for weather information, general knowledge, etc.), recognize that the question cannot be answered with the available database and politely inform the user. Suggest that the user ask questions specifically about network measurements, such as bitrate, latency, or quality of experience (QoE).
+    **Handling Questions**:
 
-        Examples:
+    1. **Questions Not Related to the Database**:
+       - If the question is unrelated to network scope (e.g., asking for weather information or general knowledge), recognize that it is unrelated to the database.
+       - If the question is related to network measurements or the network context (e.g., IP addresses, client-server information) but does not fit into the provided examples (e.g., it asks for specific types of analysis or metrics not described), recognize the question is unrelated to the database but cannot be answered.       
+
+    **Examples**:
 
         User: "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?"
         AI: The user is asking to identify the client with the lowest average QoE (Quality of Experience). The logical steps are:
@@ -45,7 +48,7 @@ def step_1_comprehend_question(question):
             2. Normalize both the bitrate and latency.
             3. Calculate QoE for each client over time.
             4. Identify the client with the lowest average QoE.
-
+        
         User: "Qual servidor fornece a QoE mais consistente?"
         AI: The user is asking for the server with the lowest variance in QoE over time. The logical steps are:
             1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
@@ -66,7 +69,7 @@ def step_1_comprehend_question(question):
             3. Recalculate QoE using the modified latency values.
             4. Compare the new QoE values to the original and explain the impact of the latency change.
 
-        User: "Qual o bitrate médio dentro de cada rajada para o cliente X e o servidor Y no período entre dia_1 hora_1 e dia_2 hora_2?"
+        User: "Qual o bitrate médio dentro de cada rajada para o cliente X e o servidor Y no período entre 07/06/2024 e 10/06/2024?"
         AI: The user is asking for the average bitrate within bursts for a specific client and server over a given time period. The logical steps are:
             1. Filter the 'bitrate_train' table for measurements related to client X and server Y within the time period.
             2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
@@ -78,8 +81,8 @@ def step_1_comprehend_question(question):
             2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
             3. Find the corresponding latency measurements in the 'rtt_train' table that fall within the same time intervals as the bursts.
             4. Return these latency measurements.
-
     """
+
     
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt_1), ("human", "{input}")])
     logical_steps_llm = prompt | llm.with_structured_output(LogicalSteps)
@@ -93,19 +96,23 @@ class FlagOutput(BaseModel):
     server_variance: bool = Field(default=False, description="Flag para indicar se a variância do servidor será calculada")
     bitrate_average: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve ser calculada")
     latency_for_bursts: bool = Field(default=False, description="Flag para indicar se a latência deve ser calculada nas rajadas")
+    unrelated_to_db: bool = Field(default=False, description="Flag para indicar que a pergunta não está relacionada ao banco de dados")
 
 def step_2_generate_flags(logical_steps):
     """Step 2: Geração de Flags com base nos passos lógicos"""
     system_prompt_2 = """
         You are an AI that generates flags based on logical steps describing the actions needed to answer a user's question related to network measurement data stored in SQL tables.
 
-        Given the logical steps, generate flags to indicate the required calculations:
+        Given the logical steps, generate flags to indicate the required calculations or to handle specific situations:
         
         - Set 'qoe_required' to True if the question requires calculating the Quality of Experience (QoE).
         - Set 'latency_increase' to True if the question involves simulating an increase in latency.
         - Set 'server_variance' to True if the question asks for the variance in QoE across servers.
         - Set 'bitrate_average' to True if the question involves calculating the average bitrate within bursts.
         - Set 'latency_for_bursts' to True if the question asks for latency values that match burst intervals from the 'bitrate_train' table.
+        - Set 'unrelated_to_db' to True if the question is completely unrelated to the available network measurement data (e.g., weather forecast or general knowledge questions).
+        - Set 'db_related_but_not_covered' to True if the question is related to network measurements or the broader network context (e.g., IP addresses, client-server connections), but does not match any predefined example for calculations or is not covered by the available data in the database.
+
 
         Examples:
 
@@ -137,16 +144,12 @@ def step_2_generate_flags(logical_steps):
         Flags: latency_increase = True, qoe_required = True
 
         Logical Steps:
-        1. Filter the 'bitrate_train' table for measurements related to the client and server.
-        2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
-        3. Calculate the average bitrate for each burst.
-        Flags: bitrate_average = True
+        1. This question is unrelated to the available network measurement data and involves general knowledge (e.g., weather, geography, IP addresses, or client-server network topology).
+        Flags: unrelated_to_db = True
 
         Logical Steps:
-        1. Filter the 'bitrate_train' table for measurements related to the client and server.
-        2. Identify bursts by grouping measurements within 5 seconds.
-        3. Find the corresponding latency measurements from 'rtt_train' that fall within the burst intervals.
-        Flags: latency_for_bursts = True
+        1. The user is asking for a specific type of analysis that is related to the network measurements but is not covered by any predefined examples.
+        Flags: unrelated_to_db = True
     """
     
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt_2), ("human", "{logical_steps}")])
