@@ -1,48 +1,20 @@
-A função abaixo deve gerar querries sql para responder perguntas que recebe na forma de linguagem natural. Porém ela não está funcionando, pois está reclamando da entrada dos dados. Melhore o system_prompt, aumentando a quantidade de exemplos e melhorando os existentes. Deixe ela bem genérica para que possa responder uma ampla gama de perguntas sobre o banco de dados.
+Um banco de dados em SQL possui dados sobre uma rede de informática, com 4 tabelas. As duas que são relevantes para este trabalho possuem as seguintes colunas:
 
-class DatabaseQuery(BaseModel):
-    """Structure for database queries."""
-    table: str = Field(description="The name of the table to be read from the database")
-    query: str = Field(description="The SQL query to fetch data from the database")
+bitrate train.csv: contém medições da taxa de transmissão (bitrate) de vídeo (em kbps).
+– Coluna 1: client (string)
+– Coluna 2: server (string)
+– Coluna 3: timestamp (está em Unix time em segundos desde 1/1/1970).
+– Coluna 4: bitrate (em kbps)
+- Coluna 5: datahora
 
-def process_query(question):
-    """Processa a pergunta e retorna o resultado da query e a estrutura da query."""
-    system_prompt = """You are an expert in network performance data analysis. You understand the format of the SQLite database: trabalho_raw.db with tables bitrate_train and rtt_train.
+• rtt train.csv:  contém medições de latência (RTT, em ms).
+– Coluna 1: client (string)
+– Coluna 2: server (string)
+– Coluna 3: timestamp (está em Unix time em segundos desde 1/1/1970).
+– Coluna 4: rtt (em ms)
+- Coluna 5: datahora
 
-    You can extract dates from user queries, convert them to UTC timestamps (in seconds), and generate the corresponding SQL queries.
-
-    Here are some examples of queries and their structured responses:
-
-    example_user: Qual foi o cliente com maior bitrate?
-    example_assistant: {"table": "bitrate_train", "query": "SELECT client, MAX(bitrate) as Max_Bitrate FROM bitrate_train GROUP BY client ORDER BY Max_Bitrate DESC LIMIT 1"}
-
-    example_user: Média da taxa de bitrate em cada rajada para cada par cliente-servidor?
-    example_assistant: {"table": "bitrate_train", "query": "SELECT client, server, timestamp, AVG(bitrate) as Avg_Bitrate FROM bitrate_train GROUP BY client, server, timestamp"}
-
-    example_user: Média da taxa de bitrate para o cliente rj e servidor pi no dia 07/06/2024?
-    example_assistant: 
-    {
-        "table": "bitrate_train",
-        "query": "SELECT client, server, timestamp, AVG(bitrate) as Avg_Bitrate FROM bitrate_train WHERE client = 'rj' AND server = 'pi' AND timestamp BETWEEN {timestamp_inicial} AND {timestamp_final} GROUP BY client, server, timestamp"
-    }
-
-    When the user asks a question that includes a date, extract the date and convert it to a UTC timestamp (in seconds). Use this timestamp in the SQL query.
-    """
-
-    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("human", question)])
-    few_shot_structured_llm = prompt | llm.with_structured_output(DatabaseQuery)
-    table_and_query = few_shot_structured_llm.invoke({"input": question})
-
-    timestamp_inicial, timestamp_final = extract_date_from_question(question)
-    if timestamp_inicial and timestamp_final:
-        query_str = table_and_query.query.replace("{timestamp_inicial}", str(timestamp_inicial)).replace("{timestamp_final}", str(timestamp_final))
-    else:
-        query_str = table_and_query.query
-
-    query_result = execute_sql_query(query_str)
-    return query_result, table_and_query
-
-
+Uma LLM  deverá ser capaz de 
 
 
 
