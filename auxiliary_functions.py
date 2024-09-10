@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+pd.options.mode.copy_on_write = True
 import sqlite3
 import time
 from datetime import datetime
@@ -86,12 +87,12 @@ def aux_calculate_bitrate_bursts(bitrate_df):
 
     return bursts_df
 
-
 def aux_find_latency_for_bursts(bursts_df, rtt_df):
     """
     Função para combinar medições de latência que coincidem com as rajadas de bitrate.
     Para cada par cliente x servidor, encontra as medidas de latência que coincidem com a janela de tempo da rajada.
     """
+    
     # Definir uma lista para armazenar as medições que coincidem
     matched_df_list = []
 
@@ -103,11 +104,16 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         cliente = burst['client']
         servidor = burst['server']
 
+        # print(f"\nProcessando rajada: Cliente={cliente}, Servidor={servidor}, Início={burst_start}, Fim={burst_end}")
+
         # Filtrar as medições de latência que coincidem com essa rajada de bitrate e o par cliente-servidor
-        matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start-50) & 
-                              (rtt_df['timestamp'] <= burst_end+50) & 
+        matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start - 150) & 
+                              (rtt_df['timestamp'] <= burst_end + 150) & 
                               (rtt_df['client'] == cliente) & 
                               (rtt_df['server'] == servidor)]
+
+        # print(f"Medidas de latência encontradas: {len(matching_rtt)}")
+        # print(matching_rtt)
 
         # Adicionar as medições encontradas para a lista
         if not matching_rtt.empty:
@@ -120,8 +126,14 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
     else:
         matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência
 
+    # print("\nDataFrame final combinado:")
+    bursts_df['datahora_inicio'] = bursts_df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora)
     print(bursts_df)
+    rtt_df['datahora'] = rtt_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
+    print(rtt_df)
+    matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
     print(matched_df)
+    
 
     return matched_df
 
