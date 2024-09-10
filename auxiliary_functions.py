@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import sqlite3
+import time
+from datetime import datetime
 
 def aux_get_dataframes_from_db():
     """Função auxiliar para extrair as tabelas do banco de dados e convertê-las em dataframes"""
@@ -103,4 +105,11 @@ def aux_find_latency_for_bursts(bitrate_df, rtt_df):
         latency_for_bursts.append(latencies_in_burst)
     
     return latency_for_bursts
+
+def aux_convert_datahora_to_timestamp(datahora_str):
+    """Converte uma string de datahora (YYYY-MM-DD HH:MM:SS) para timestamp Unix."""
+    dt = datetime.strptime(datahora_str, '%Y-%m-%d %H:%M:%S')
+    timestamp = int(time.mktime(dt.timetuple()))
+    return timestamp
+
 

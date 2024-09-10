@@ -29,8 +29,8 @@ def step_1_comprehend_question(question):
     - The 'bitrate' is stored in the 'bitrate_train' table and is measured in bursts. A burst is defined by measurements with very close timestamps (less than 5 seconds apart). When calculating an average for a burst, it refers to the average bitrate within this short time interval.
     - Latency is stored in the 'rtt' column of the 'rtt_train' table and is measured continuously but irregularly over time, without bursts.
     - Timestamps are stored in Unix time in both tables and can be matched between tables for analysis.
-    - The 'bitrate_train' table has the following columns: client, server, timestamp, bitrate, datahora.
-    - The 'rtt_train' table has the following columns: client, server, timestamp, rtt, datahora.
+    - The 'bitrate_train' table has the following columns: client, server, timestamp, bitrate.
+    - The 'rtt_train' table has the following columns: client, server, timestamp, rtt.
 
     Given these details, analyze the user's question, determine what needs to be calculated, and outline the logical steps needed to construct the appropriate SQL query or handle the question context.
 
@@ -97,61 +97,94 @@ class FlagOutput(BaseModel):
     bitrate_average: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve ser calculada")
     latency_for_bursts: bool = Field(default=False, description="Flag para indicar se a latência deve ser calculada nas rajadas")
     unrelated_to_db: bool = Field(default=False, description="Flag para indicar que a pergunta não está relacionada ao banco de dados")
+    client_specific: str = Field(default=False, description="Nome do cliente específico, se aplicável, ou False")
+    server_specific: str = Field(default=False, description="Nome do servidor específico, se aplicável, ou False")
+    datahora_inicio: str = Field(default=False, description="Data de início do intervalo de tempo ou False")
+    datahora_final: str = Field(default=False, description="Data final do intervalo de tempo ou False")
+
+
 
 def step_2_generate_flags(logical_steps):
     """Step 2: Geração de Flags com base nos passos lógicos"""
+
     system_prompt_2 = """
-        You are an AI that generates flags based on logical steps describing the actions needed to answer a user's question related to network measurement data stored in SQL tables.
+    You are an AI that generates flags based on logical steps describing the actions needed to answer a user's question related to network measurement data stored in SQL tables.
 
-        Given the logical steps, generate flags to indicate the required calculations or to handle specific situations:
-        
-        - Set 'qoe_required' to True if the question requires calculating the Quality of Experience (QoE).
-        - Set 'latency_increase' to True if the question involves simulating an increase in latency.
-        - Set 'server_variance' to True if the question asks for the variance in QoE across servers.
-        - Set 'bitrate_average' to True if the question involves calculating the average bitrate within bursts.
-        - Set 'latency_for_bursts' to True if the question asks for latency values that match burst intervals from the 'bitrate_train' table.
-        - Set 'unrelated_to_db' to True if the question is completely unrelated to the available network measurement data (e.g., weather forecast or general knowledge questions).
-        - Set 'db_related_but_not_covered' to True if the question is related to network measurements or the broader network context (e.g., IP addresses, client-server connections), but does not match any predefined example for calculations or is not covered by the available data in the database.
-
-
-        Examples:
-
-        Logical Steps:
-        1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
-        2. Normalize both the bitrate and latency.
-        3. Calculate QoE for each client over time.
-        4. Identify the client with the lowest average QoE.
-        Flags: qoe_required = True
-
-        Logical Steps:
-        1. Calculate QoE for each server based on clients connected to it.
-        2. Calculate the variance of QoE for each server.
-        3. Identify the server with the lowest variance in QoE.
-        Flags: server_variance = True
-
-        Logical Steps:
-        1. Identify all servers the client is connected to.
-        2. Calculate the QoE for each server over time.
-        3. Determine the best server at each timestamp.
-        4. Recommend the best server switching strategy.
-        Flags: qoe_required = True
-
-        Logical Steps:
-        1. Select the client and retrieve their current latency values.
-        2. Increase the latency by 20%.
-        3. Recalculate QoE using the modified latency values.
-        4. Compare the new QoE to the original QoE.
-        Flags: latency_increase = True, qoe_required = True
-
-        Logical Steps:
-        1. This question is unrelated to the available network measurement data and involves general knowledge (e.g., weather, geography, IP addresses, or client-server network topology).
-        Flags: unrelated_to_db = True
-
-        Logical Steps:
-        1. The user is asking for a specific type of analysis that is related to the network measurements but is not covered by any predefined examples.
-        Flags: unrelated_to_db = True
-    """
+    Given the logical steps, generate flags to indicate the required calculations or to handle specific situations:
     
+    - Set 'qoe_required' to True if the question requires calculating the Quality of Experience (QoE).
+    - Set 'latency_increase' to True if the question involves simulating an increase in latency.
+    - Set 'server_variance' to True if the question asks for the variance in QoE across servers.
+    - Set 'bitrate_average' to True if the question involves calculating the average bitrate within bursts.
+    - Set 'latency_for_bursts' to True if the question asks for latency values that match burst intervals from the 'bitrate_train' table.
+    - Set 'unrelated_to_db' to True if the question is not directly related to the available network measurement data in the database (e.g., IP addresses, network topology, or general knowledge like weather or geography).
+    - Set 'client_specific' and 'server_specific' to the names of the client and server if the question specifies them; otherwise, keep them as "False".
+    - Set 'datahora_inicio' and 'datahora_final' to the start and end timestamps if the question specifies a time range, formatted as 'YYYY-MM-DD HH:MM:SS'; otherwise, keep them as "False".
+
+    **Important Clarifications:**
+    - If the question is not about bitrate, latency, or Quality of Experience (QoE), it should be marked as 'unrelated_to_db'.
+    - Any question involving specific clients (ba, rj), servers (ce, df, es, pi), or time ranges should have the appropriate flags filled accordingly.
+
+    **Examples**:
+
+    User: "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?"
+    Logical Steps:
+    1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
+    2. Normalize both the bitrate and latency.
+    3. Calculate QoE for each client over time.
+    4. Identify the client with the lowest average QoE.
+    Flags: qoe_required = True
+
+    User: "Qual servidor fornece a QoE mais consistente?"
+    Logical Steps:
+    1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
+    2. Calculate the variance of QoE for each server.
+    3. Identify the server with the lowest variance in QoE.
+    Flags: server_variance = True
+
+    User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente ba?"
+    Logical Steps:
+    1. Identify all servers that the client is connected to from the 'bitrate_train' and 'rtt_train' tables.
+    2. Calculate the QoE for each server over time.
+    3. Determine the best server at each timestamp to maximize QoE for the client.
+    4. Recommend the best server switching strategy based on QoE.
+    Flags: qoe_required = True, client_specific = 'ba'
+
+    User: "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj?"
+    Logical Steps:
+    1. Select the client and retrieve their current latency values from 'rtt_train'.
+    2. Increase the latency values by 20%.
+    3. Recalculate QoE using the modified latency values.
+    4. Compare the new QoE values to the original and explain the impact of the latency change.
+    Flags: latency_increase = True, qoe_required = True, client_specific = 'rj'
+
+    User: "Qual o bitrate médio dentro de cada rajada para o cliente ba e o servidor pi no período entre 2024-06-07 00:00:00 e 2024-06-10 23:59:59?"
+    Logical Steps:
+    1. Filter the 'bitrate_train' table for measurements related to client ba and server pi within the time period.
+    2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
+    3. Calculate the average bitrate for each identified burst.
+    Flags: bitrate_average = True, client_specific = 'ba', server_specific = 'pi', datahora_inicio = '2024-06-07 00:00:00', datahora_final = '2024-06-10 23:59:59'
+
+    User: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor df no período entre 2024-06-07 00:00:00 e 2024-06-10 23:59:59?"
+    Logical Steps:
+    1. Filter the 'bitrate_train' table for measurements related to client rj and server df within the time period.
+    2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
+    3. Find the corresponding latency measurements in the 'rtt_train' table that fall within the same time intervals as the bursts.
+    4. Return these latency measurements.
+    Flags: latency_for_bursts = True, client_specific = 'rj', server_specific = 'df', datahora_inicio = '2024-06-07 00:00:00', datahora_final = '2024-06-10 23:59:59'
+
+    User: "Qual o IP do cliente rj na rede?"
+    Logical Steps:
+    1. This question is unrelated to the available network measurement data and involves general knowledge (e.g., weather, geography, IP addresses, or client-server network topology).
+    Flags: unrelated_to_db = True
+
+    User: "Qual é a mediana da latência em uma janela de 1 minuto?"
+    Logical Steps:
+    1. The user is asking for a specific type of analysis that is related to the network measurements but is not covered by any predefined examples.
+    2. Inform the user that custom logic may be required to handle this specific question.
+    Flags: unrelated_to_db = True
+"""
+
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt_2), ("human", "{logical_steps}")])
     flag_llm = prompt | llm.with_structured_output(FlagOutput)
     flags = flag_llm.invoke(logical_steps)
@@ -162,13 +195,31 @@ def step_3_process_with_flags(flags):
     
     processed_data = {}
 
-    # Se todas as flags forem falsas, a pergunta não está relacionada ao banco de dados
-    if not any(flags.dict().values()):
+    # Verifica se a pergunta é considerada não relacionada ao banco de dados
+    if flags.unrelated_to_db:
         processed_data['info'] = "A pergunta não está relacionada ao banco de dados disponível."
         return processed_data
     
-    # Extrai os DataFrames do banco de dados
+    # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
     bitrate_df, rtt_df = aux_get_dataframes_from_db()
+
+    # Aplica os filtros de cliente e/ou servidor, se necessário
+    if flags.client_specific != "False":
+        bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
+        rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
+    if flags.server_specific != "False":
+        bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
+        rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
+
+    # Aplica o filtro de tempo com base no timestamp, se necessário
+    if flags.datahora_inicio != False and flags.datahora_final != False:
+        # Converte datahora para timestamp utilizando a função auxiliar
+        timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
+        timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
+        
+        # Filtra os DataFrames usando a coluna timestamp
+        bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
+        rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
 
     # Flag para calcular a QoE
     if flags.qoe_required:
@@ -207,7 +258,6 @@ def step_3_process_with_flags(flags):
         processed_data['Latency for Bursts'] = latency_for_bursts
     
     return processed_data
-
 
 class NaturalLanguageResponse(BaseModel):
     """Estrutura para a resposta em linguagem natural"""
