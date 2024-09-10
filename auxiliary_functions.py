@@ -3,7 +3,22 @@ import pandas as pd
 pd.options.mode.copy_on_write = True
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+import calendar
+
+def salvar_dataframes_em_txt(dataframes, arquivo_saida):
+    """
+    Salva uma lista de DataFrames em sequência em um arquivo de texto.
+    
+    Parâmetros:
+    - dataframes: Lista de DataFrames a serem salvos.
+    - arquivo_saida: Caminho do arquivo de saída.
+    """
+    with open(arquivo_saida, 'w') as f:
+        for i, df in enumerate(dataframes):
+            f.write(f"DataFrame {i+1}:\n")
+            df.to_string(f)
+            f.write("\n\n")  # Adiciona uma linha em branco entre os DataFrames
 
 def aux_get_dataframes_from_db():
     """Função auxiliar para extrair as tabelas do banco de dados e convertê-las em dataframes"""
@@ -32,6 +47,7 @@ def aux_convert_datahora_to_timestamp(datahora_str):
     dt = datetime.strptime(datahora_str, '%Y-%m-%d %H:%M:%S')
     timestamp = int(time.mktime(dt.timetuple()))
     return timestamp
+
 
 def aux_convert_timestamp_to_datahora(timestamp):
     """
@@ -128,11 +144,10 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
 
     # print("\nDataFrame final combinado:")
     bursts_df['datahora_inicio'] = bursts_df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora)
-    print(bursts_df)
     rtt_df['datahora'] = rtt_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    print(rtt_df)
     matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    print(matched_df)
+
+    salvar_dataframes_em_txt([bursts_df,rtt_df,matched_df], 'saida.txt')
     
 
     return matched_df

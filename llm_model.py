@@ -228,86 +228,86 @@ def step_3_process_with_flags(flags):
     
     return processed_data
 
-def step_3_old(flags):
-    """Step 3: Processa os dados com base nas flags geradas no step_2."""
+# def step_3_old(flags):
+#     """Step 3: Processa os dados com base nas flags geradas no step_2."""
     
-    processed_data = {}
+#     processed_data = {}
 
-    # Verifica se a pergunta é considerada não relacionada ao banco de dados
-    if flags.unrelated_to_db:
-        processed_data['info'] = "A pergunta não está relacionada ao banco de dados disponível."
-        return processed_data
+#     # Verifica se a pergunta é considerada não relacionada ao banco de dados
+#     if flags.unrelated_to_db:
+#         processed_data['info'] = "A pergunta não está relacionada ao banco de dados disponível."
+#         return processed_data
     
-    # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
-    bitrate_df, rtt_df = aux_get_dataframes_from_db()
+#     # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
+#     bitrate_df, rtt_df = aux_get_dataframes_from_db()
 
-    # Aplica os filtros de cliente e/ou servidor, se necessário
-    if flags.client_specific != "":
-        bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
-        rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
-    if flags.server_specific != "":
-        bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
-        rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
+#     # Aplica os filtros de cliente e/ou servidor, se necessário
+#     if flags.client_specific != "":
+#         bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
+#         rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
+#     if flags.server_specific != "":
+#         bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
+#         rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
 
-    # Aplica o filtro de tempo com base no timestamp, se necessário
-    if flags.datahora_inicio != "" and flags.datahora_final != "":
-        # Converte datahora para timestamp utilizando a função auxiliar
-        timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
-        timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
+#     # Aplica o filtro de tempo com base no timestamp, se necessário
+#     if flags.datahora_inicio != "" and flags.datahora_final != "":
+#         # Converte datahora para timestamp utilizando a função auxiliar
+#         timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
+#         timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
         
-        # Filtra os DataFrames usando a coluna timestamp
-        bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
-        rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
+#         # Filtra os DataFrames usando a coluna timestamp
+#         bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
+#         rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
 
-    # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
-    if flags.qoe_required:
-        bursts = aux_calculate_bitrate_bursts(bitrate_df)  # Obtém as rajadas de bitrate
-        # Verifica se os timestamps de latência coincidem com as rajadas de bitrate
-        matching_df = aux_match_latency_with_bitrate_bursts(bursts, rtt_df)
+#     # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
+#     if flags.qoe_required:
+#         bursts = aux_calculate_bitrate_bursts(bitrate_df)  # Obtém as rajadas de bitrate
+#         # Verifica se os timestamps de latência coincidem com as rajadas de bitrate
+#         matching_df = aux_match_latency_with_bitrate_bursts(bursts, rtt_df)
         
-        # Calcula os valores mínimos e máximos de bitrate e rtt
-        min_bitrate = matching_df['bitrate'].min()
-        max_bitrate = matching_df['bitrate'].max()
-        min_rtt = matching_df['rtt'].min()
-        max_rtt = matching_df['rtt'].max()
+#         # Calcula os valores mínimos e máximos de bitrate e rtt
+#         min_bitrate = matching_df['bitrate'].min()
+#         max_bitrate = matching_df['bitrate'].max()
+#         min_rtt = matching_df['rtt'].min()
+#         max_rtt = matching_df['rtt'].max()
 
-        # Calcula a QoE com base nos valores do próprio dataframe
-        matching_df['QoE'] = matching_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
-                                                                            min_bitrate=min_bitrate, 
-                                                                            max_bitrate=max_bitrate, 
-                                                                            min_rtt=min_rtt, 
-                                                                            max_rtt=max_rtt), axis=1)
-        qoe_by_client = matching_df.groupby('client')['QoE'].mean().to_dict()
-        processed_data['QoE'] = qoe_by_client
+#         # Calcula a QoE com base nos valores do próprio dataframe
+#         matching_df['QoE'] = matching_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
+#                                                                             min_bitrate=min_bitrate, 
+#                                                                             max_bitrate=max_bitrate, 
+#                                                                             min_rtt=min_rtt, 
+#                                                                             max_rtt=max_rtt), axis=1)
+#         qoe_by_client = matching_df.groupby('client')['QoE'].mean().to_dict()
+#         processed_data['QoE'] = qoe_by_client
     
-    # Flag para simular aumento de latência
-    if flags.latency_increase:
-        merged_df = pd.merge(bitrate_df, rtt_df, on=['client', 'server', 'timestamp'])
-        merged_df['Simulated QoE'] = merged_df.apply(lambda row: aux_simular_qoe_com_aumento_latencia(
-            row['bitrate'], row['rtt'], 20, min_bitrate=100, max_bitrate=10000, min_rtt=10, max_rtt=500), axis=1)
-        simulated_qoe_by_client = merged_df.groupby('client')['Simulated QoE'].mean().to_dict()
-        processed_data['Simulated QoE'] = simulated_qoe_by_client
+#     # Flag para simular aumento de latência
+#     if flags.latency_increase:
+#         merged_df = pd.merge(bitrate_df, rtt_df, on=['client', 'server', 'timestamp'])
+#         merged_df['Simulated QoE'] = merged_df.apply(lambda row: aux_simular_qoe_com_aumento_latencia(
+#             row['bitrate'], row['rtt'], 20, min_bitrate=100, max_bitrate=10000, min_rtt=10, max_rtt=500), axis=1)
+#         simulated_qoe_by_client = merged_df.groupby('client')['Simulated QoE'].mean().to_dict()
+#         processed_data['Simulated QoE'] = simulated_qoe_by_client
     
-    # Flag para calcular a variância da QoE por servidor
-    if flags.server_variance:
-        merged_df = pd.merge(bitrate_df, rtt_df, on=['client', 'server', 'timestamp'])
-        merged_df['QoE'] = merged_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
-                                                                       min_bitrate=100, max_bitrate=10000, 
-                                                                       min_rtt=10, max_rtt=500), axis=1)
-        variance_by_server = merged_df.groupby('server')['QoE'].var().to_dict()
-        processed_data['QoE Variance'] = variance_by_server
+#     # Flag para calcular a variância da QoE por servidor
+#     if flags.server_variance:
+#         merged_df = pd.merge(bitrate_df, rtt_df, on=['client', 'server', 'timestamp'])
+#         merged_df['QoE'] = merged_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
+#                                                                        min_bitrate=100, max_bitrate=10000, 
+#                                                                        min_rtt=10, max_rtt=500), axis=1)
+#         variance_by_server = merged_df.groupby('server')['QoE'].var().to_dict()
+#         processed_data['QoE Variance'] = variance_by_server
     
-    # Flag para calcular o bitrate médio por rajada
-    if flags.bitrate_average:
-        bursts = aux_calculate_bitrate_bursts(bitrate_df)
-        processed_data['Bitrate Average'] = bursts
+#     # Flag para calcular o bitrate médio por rajada
+#     if flags.bitrate_average:
+#         bursts = aux_calculate_bitrate_bursts(bitrate_df)
+#         processed_data['Bitrate Average'] = bursts
     
-    # Flag para calcular a latência para as rajadas de bitrate
-    if flags.latency_for_bursts:
-        latency_for_bursts = aux_find_latency_for_bursts(bitrate_df, rtt_df)
-        processed_data['Latency for Bursts'] = latency_for_bursts
+#     # Flag para calcular a latência para as rajadas de bitrate
+#     if flags.latency_for_bursts:
+#         latency_for_bursts = aux_find_latency_for_bursts(bitrate_df, rtt_df)
+#         processed_data['Latency for Bursts'] = latency_for_bursts
     
-    return processed_data
+#     return processed_data
 
 class NaturalLanguageResponse(BaseModel):
     """Estrutura para a resposta em linguagem natural"""
