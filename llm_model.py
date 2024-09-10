@@ -43,17 +43,19 @@ def step_1_comprehend_question(question):
     **Examples**:
 
         User: "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?"
-        AI: The user is asking to identify the client with the lowest average QoE (Quality of Experience). The logical steps are:
-            1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
-            2. Normalize both the bitrate and latency.
-            3. Calculate QoE for each client over time.
-            4. Identify the client with the lowest average QoE.
-        
+        Logical Steps:
+        1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
+        2. Ensure that the QoE calculation is only performed when the latency measurement coincides with a burst of bitrate measurements.
+        3. Normalize both the bitrate and latency.
+        4. Calculate QoE for each client over time.
+        5. Identify the client with the lowest average QoE.
+
         User: "Qual servidor fornece a QoE mais consistente?"
-        AI: The user is asking for the server with the lowest variance in QoE over time. The logical steps are:
-            1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
-            2. Calculate the variance of QoE for each server.
-            3. Identify the server with the lowest variance in QoE.
+        Logical Steps:
+        1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
+        2. Ensure that the QoE calculation is only performed when the latency measurement coincides with a burst of bitrate measurements.
+        3. Calculate the variance of QoE for each server.
+        4. Identify the server with the lowest variance in QoE.
 
         User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente X?"
         AI: The user is asking for an optimal strategy to switch servers over time to improve QoE for a specific client. The logical steps are:
@@ -131,16 +133,17 @@ def step_2_generate_flags(logical_steps):
     Logical Steps:
     1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
     2. Normalize both the bitrate and latency.
-    3. Calculate QoE for each client over time.
-    4. Identify the client with the lowest average QoE.
-    Flags: qoe_required = True
+    3. Ensure that the QoE is only calculated when the latency coincides with a burst of bitrate.
+    4. Calculate QoE for each client over time.
+    5. Identify the client with the lowest average QoE.
 
     User: "Qual servidor fornece a QoE mais consistente?"
     Logical Steps:
     1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
-    2. Calculate the variance of QoE for each server.
-    3. Identify the server with the lowest variance in QoE.
-    Flags: server_variance = True
+    2. Normalize both the bitrate and latency.
+    3. Ensure that QoE is only calculated when the latency coincides with a burst of bitrate.
+    4. Calculate the variance of QoE for each server.
+    5. Identify the server with the lowest variance in QoE.
 
     User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente ba?"
     Logical Steps:
@@ -212,7 +215,7 @@ def step_3_process_with_flags(flags):
         rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
 
     # Aplica o filtro de tempo com base no timestamp, se necessário
-    if flags.datahora_inicio != False and flags.datahora_final != False:
+    if flags.datahora_inicio != "False" and flags.datahora_final != "False":
         # Converte datahora para timestamp utilizando a função auxiliar
         timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
         timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
@@ -221,13 +224,25 @@ def step_3_process_with_flags(flags):
         bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
         rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
 
-    # Flag para calcular a QoE
+    # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
     if flags.qoe_required:
-        merged_df = pd.merge(bitrate_df, rtt_df, on=['client', 'server', 'timestamp'])
-        merged_df['QoE'] = merged_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
-                                                                       min_bitrate=100, max_bitrate=10000, 
-                                                                       min_rtt=10, max_rtt=500), axis=1)
-        qoe_by_client = merged_df.groupby('client')['QoE'].mean().to_dict()
+        bursts = aux_calculate_bitrate_bursts(bitrate_df)  # Obtém as rajadas de bitrate
+        # Verifica se os timestamps de latência coincidem com as rajadas de bitrate
+        matching_df = aux_match_latency_with_bitrate_bursts(bursts, rtt_df)
+        
+        # Calcula os valores mínimos e máximos de bitrate e rtt
+        min_bitrate = matching_df['bitrate'].min()
+        max_bitrate = matching_df['bitrate'].max()
+        min_rtt = matching_df['rtt'].min()
+        max_rtt = matching_df['rtt'].max()
+
+        # Calcula a QoE com base nos valores do próprio dataframe
+        matching_df['QoE'] = matching_df.apply(lambda row: aux_calcular_qoe(row['bitrate'], row['rtt'], 
+                                                                            min_bitrate=min_bitrate, 
+                                                                            max_bitrate=max_bitrate, 
+                                                                            min_rtt=min_rtt, 
+                                                                            max_rtt=max_rtt), axis=1)
+        qoe_by_client = matching_df.groupby('client')['QoE'].mean().to_dict()
         processed_data['QoE'] = qoe_by_client
     
     # Flag para simular aumento de latência

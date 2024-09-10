@@ -112,4 +112,34 @@ def aux_convert_datahora_to_timestamp(datahora_str):
     timestamp = int(time.mktime(dt.timetuple()))
     return timestamp
 
+def aux_match_latency_with_bitrate_bursts(bursts_df, rtt_df):
+    """
+    Função para combinar medições de latência que coincidem com as rajadas de bitrate.
+    """
+    # Definir uma lista para armazenar as medições que coincidem
+    matched_df_list = []
+
+    # Para cada rajada de bitrate, verificar quais medições de latência estão na mesma janela de tempo
+    for _, burst in bursts_df.iterrows():
+        # O início e o fim da rajada de bitrate
+        burst_start = burst['timestamp_inicio']
+        burst_end = burst['timestamp_final']
+
+        # Filtrar as medições de latência que coincidem com essa rajada de bitrate
+        matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]
+
+        # Adicionar as medições encontradas para a lista
+        if not matching_rtt.empty:
+            matching_rtt['bitrate'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
+            matched_df_list.append(matching_rtt)
+
+    # Concatenar os DataFrames que coincidem
+    if matched_df_list:
+        matched_df = pd.concat(matched_df_list, ignore_index=True)
+    else:
+        matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência
+
+    return matched_df
+
+
 
