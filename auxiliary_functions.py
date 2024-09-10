@@ -45,18 +45,6 @@ def aux_calculate_bitrate_bursts(bitrate_df):
     Função para calcular as rajadas de bitrate para cada combinação de cliente e servidor.
     Identifica intervalos de tempo em que as medições de bitrate ocorrem em sequência,
     separadas por no máximo 5 segundos, e calcula o bitrate médio dentro de cada rajada.
-
-    Parameters:
-    bitrate_df (DataFrame): DataFrame contendo as medições de bitrate com as colunas 'client',
-                            'server', 'timestamp', e 'bitrate'.
-
-    Returns:
-    DataFrame: DataFrame contendo as rajadas de bitrate para cada cliente-servidor, com colunas:
-        - 'client': Nome do cliente.
-        - 'server': Nome do servidor.
-        - 'timestamp_inicio': Início da rajada de bitrate.
-        - 'timestamp_final': Final da rajada de bitrate.
-        - 'bitrate_medio': Bitrate médio durante a rajada.
     """
     # Ordena o DataFrame por 'client', 'server' e 'timestamp' para garantir a ordem correta
     bitrate_df = bitrate_df.sort_values(by=['client', 'server', 'timestamp']).reset_index(drop=True)
@@ -99,8 +87,43 @@ def aux_calculate_bitrate_bursts(bitrate_df):
     return bursts_df
 
 
+def aux_find_latency_for_bursts(bursts_df, rtt_df):
+    """
+    Função para combinar medições de latência que coincidem com as rajadas de bitrate.
+    Para cada par cliente x servidor, encontra as medidas de latência que coincidem com a janela de tempo da rajada.
+    """
+    # Definir uma lista para armazenar as medições que coincidem
+    matched_df_list = []
 
+    # Para cada rajada de bitrate, verificar quais medições de latência estão na mesma janela de tempo
+    for _, burst in bursts_df.iterrows():
+        # O início e o fim da rajada de bitrate
+        burst_start = burst['timestamp_inicio']
+        burst_end = burst['timestamp_final']
+        cliente = burst['client']
+        servidor = burst['server']
 
+        # Filtrar as medições de latência que coincidem com essa rajada de bitrate e o par cliente-servidor
+        matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start-50) & 
+                              (rtt_df['timestamp'] <= burst_end+50) & 
+                              (rtt_df['client'] == cliente) & 
+                              (rtt_df['server'] == servidor)]
+
+        # Adicionar as medições encontradas para a lista
+        if not matching_rtt.empty:
+            matching_rtt['bitrate_medio'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
+            matched_df_list.append(matching_rtt)
+
+    # Concatenar os DataFrames que coincidem
+    if matched_df_list:
+        matched_df = pd.concat(matched_df_list, ignore_index=True)
+    else:
+        matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência
+
+    print(bursts_df)
+    print(matched_df)
+
+    return matched_df
 
 
 
@@ -146,70 +169,40 @@ def aux_simular_qoe_com_aumento_latencia(bitrate, rtt, aumento_percentual, min_b
     novo_rtt = rtt * (1 + aumento_percentual / 100)
     return aux_calcular_qoe(bitrate, novo_rtt, min_bitrate, max_bitrate, min_rtt, max_rtt)
 
-def aux_find_latency_for_bursts(bitrate_df, rtt_df):
-    """Função auxiliar para encontrar a latência que coincide com as rajadas de bitrate."""
+# def aux_find_latency_for_bursts(bitrate_df, rtt_df):
+#     """Função auxiliar para encontrar a latência que coincide com as rajadas de bitrate."""
     
-    # Ordenar os DataFrames por timestamp
-    bitrate_df = bitrate_df.sort_values(by='timestamp')
-    rtt_df = rtt_df.sort_values(by='timestamp')
+#     # Ordenar os DataFrames por timestamp
+#     bitrate_df = bitrate_df.sort_values(by='timestamp')
+#     rtt_df = rtt_df.sort_values(by='timestamp')
     
-    latency_for_bursts = []
-    current_burst_timestamps = []
-    last_timestamp = None
+#     latency_for_bursts = []
+#     current_burst_timestamps = []
+#     last_timestamp = None
     
-    # Identificar as rajadas de timestamps do bitrate
-    for _, row in bitrate_df.iterrows():
-        timestamp = row['timestamp']
-        if last_timestamp is None or timestamp - last_timestamp <= 5:
-            current_burst_timestamps.append(timestamp)
-        else:
-            if current_burst_timestamps:
-                # Buscar as latências que coincidem com o intervalo da rajada
-                burst_start = min(current_burst_timestamps)
-                burst_end = max(current_burst_timestamps)
-                latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
-                latency_for_bursts.append(latencies_in_burst)
-            current_burst_timestamps = [timestamp]
-        last_timestamp = timestamp
+#     # Identificar as rajadas de timestamps do bitrate
+#     for _, row in bitrate_df.iterrows():
+#         timestamp = row['timestamp']
+#         if last_timestamp is None or timestamp - last_timestamp <= 5:
+#             current_burst_timestamps.append(timestamp)
+#         else:
+#             if current_burst_timestamps:
+#                 # Buscar as latências que coincidem com o intervalo da rajada
+#                 burst_start = min(current_burst_timestamps)
+#                 burst_end = max(current_burst_timestamps)
+#                 latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
+#                 latency_for_bursts.append(latencies_in_burst)
+#             current_burst_timestamps = [timestamp]
+#         last_timestamp = timestamp
     
-    # Para a última rajada de timestamps
-    if current_burst_timestamps:
-        burst_start = min(current_burst_timestamps)
-        burst_end = max(current_burst_timestamps)
-        latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
-        latency_for_bursts.append(latencies_in_burst)
+#     # Para a última rajada de timestamps
+#     if current_burst_timestamps:
+#         burst_start = min(current_burst_timestamps)
+#         burst_end = max(current_burst_timestamps)
+#         latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
+#         latency_for_bursts.append(latencies_in_burst)
     
-    return latency_for_bursts
-
-
-def aux_match_latency_with_bitrate_bursts(bursts_df, rtt_df):
-    """
-    Função para combinar medições de latência que coincidem com as rajadas de bitrate.
-    """
-    # Definir uma lista para armazenar as medições que coincidem
-    matched_df_list = []
-
-    # Para cada rajada de bitrate, verificar quais medições de latência estão na mesma janela de tempo
-    for _, burst in bursts_df.iterrows():
-        # O início e o fim da rajada de bitrate
-        burst_start = burst['timestamp_inicio']
-        burst_end = burst['timestamp_final']
-
-        # Filtrar as medições de latência que coincidem com essa rajada de bitrate
-        matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]
-
-        # Adicionar as medições encontradas para a lista
-        if not matching_rtt.empty:
-            matching_rtt['bitrate'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
-            matched_df_list.append(matching_rtt)
-
-    # Concatenar os DataFrames que coincidem
-    if matched_df_list:
-        matched_df = pd.concat(matched_df_list, ignore_index=True)
-    else:
-        matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência
-
-    return matched_df
+#     return latency_for_bursts
 
 
 

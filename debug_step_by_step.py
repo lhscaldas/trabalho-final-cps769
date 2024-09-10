@@ -48,7 +48,7 @@ def debug_step_3(pergunta):
 if __name__ == "__main__":
     perguntas_debug = [
         "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?",
-        "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre 07/06/2024 e 10/06/2024?",
+        "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?",
         "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?",
         "Qual servidor fornece a QoE mais consistente para o cliente rj entre 07/06/2024 e 10/06/2024?",
         "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre 07/06/2024 e 10/06/2024?",

@@ -195,30 +195,36 @@ def step_2_generate_flags(logical_steps):
 
 def step_3_process_with_flags(flags):
     """Step 3: Processa os dados com base nas flags geradas no step_2."""
-
     processed_data = {}
 
+    # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
     bitrate_df, rtt_df = aux_get_dataframes_from_db()
 
+    # Aplica os filtros de cliente e/ou servidor, se necessário
     if flags.client_specific != "":
         bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
         rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
-
     if flags.server_specific != "":
         bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
         rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
 
+    # Aplica o filtro de tempo com base no timestamp, se necessário
     if flags.datahora_inicio != False and flags.datahora_final != False:
-        # Converte datahora para timestamp utilizando a função auxiliar
         timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
         timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
-        # Filtra os DataFrames usando a coluna timestamp
         bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
         rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
 
+    # Flag para calcular o bitrate médio por rajada
     if flags.bitrate_average:
         burts_df = aux_calculate_bitrate_bursts(bitrate_df)
         processed_data['bitrate_bursts'] = burts_df
+
+    # Flag para calcular a latência para as rajadas de bitrate
+    if flags.latency_for_bursts:
+        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
+        latency_for_bursts = aux_find_latency_for_bursts(burts_df, rtt_df)
+        processed_data['latency_for_bursts'] = latency_for_bursts
     
     return processed_data
 

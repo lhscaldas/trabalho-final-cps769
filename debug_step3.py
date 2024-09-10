@@ -2,7 +2,7 @@ from auxiliary_functions import *
 from llm_model import FlagOutput, step_3_process_with_flags
 import pandas as pd
 
-# Pergunta 1: Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?
+# Pergunta 1: Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?
 flags_1 = FlagOutput(
     qoe_required=False,
     latency_increase=False,
@@ -26,7 +26,7 @@ def debug_question_1():
     
     print(f"Resultado do processamento: \n{burts_df}")
 
-# Pergunta 2: Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre 07/06/2024 e 10/06/2024?
+# Pergunta 2: Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?
 flags_2 = FlagOutput(
     qoe_required=False,
     latency_increase=False,
@@ -36,13 +36,18 @@ flags_2 = FlagOutput(
     unrelated_to_db=False,
     client_specific='rj',
     server_specific='pi',
-    datahora_inicio='2024-06-07 00:00:00',
-    datahora_final='2024-06-10 23:59:59'
+    datahora_inicio='2024-06-07 08:00:00',
+    datahora_final='2024-06-07 09:00:00'
 )
-
 def debug_question_2():
     processed_data = step_3_process_with_flags(flags_2)
-    print(f"Resultado do processamento: \n{processed_data}")
+    matched_df = processed_data['latency_for_bursts']
+    
+    # Convertendo as colunas timestamp
+    # matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
+    # matched_df = matched_df.drop(columns=['timestamp'])
+    
+    # print(f"Resultado do processamento: \n{matched_df}")
 
 # Pergunta 3: Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?
 flags_3 = FlagOutput(
