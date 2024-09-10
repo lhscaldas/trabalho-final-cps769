@@ -99,10 +99,10 @@ class FlagOutput(BaseModel):
     bitrate_average: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve ser calculada")
     latency_for_bursts: bool = Field(default=False, description="Flag para indicar se a latência deve ser calculada nas rajadas")
     unrelated_to_db: bool = Field(default=False, description="Flag para indicar que a pergunta não está relacionada ao banco de dados")
-    client_specific: str = Field(default=False, description="Nome do cliente específico, se aplicável, ou False")
-    server_specific: str = Field(default=False, description="Nome do servidor específico, se aplicável, ou False")
-    datahora_inicio: str = Field(default=False, description="Data de início do intervalo de tempo ou False")
-    datahora_final: str = Field(default=False, description="Data final do intervalo de tempo ou False")
+    client_specific: str = Field(default="", description="Nome do cliente específico, se aplicável, ou False")
+    server_specific: str = Field(default="", description="Nome do servidor específico, se aplicável, ou False")
+    datahora_inicio: str = Field(default="", description="Data de início do intervalo de tempo ou False")
+    datahora_final: str = Field(default="", description="Data final do intervalo de tempo ou False")
 
 
 
@@ -195,6 +195,35 @@ def step_2_generate_flags(logical_steps):
 
 def step_3_process_with_flags(flags):
     """Step 3: Processa os dados com base nas flags geradas no step_2."""
+
+    processed_data = {}
+
+    bitrate_df, rtt_df = aux_get_dataframes_from_db()
+
+    if flags.client_specific != "":
+        bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
+        rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
+
+    if flags.server_specific != "":
+        bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
+        rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
+
+    if flags.datahora_inicio != False and flags.datahora_final != False:
+        # Converte datahora para timestamp utilizando a função auxiliar
+        timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
+        timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
+        # Filtra os DataFrames usando a coluna timestamp
+        bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
+        rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
+
+    if flags.bitrate_average:
+        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
+        processed_data['bitrate_bursts'] = burts_df
+    
+    return processed_data
+
+def step_3_old(flags):
+    """Step 3: Processa os dados com base nas flags geradas no step_2."""
     
     processed_data = {}
 
@@ -207,15 +236,15 @@ def step_3_process_with_flags(flags):
     bitrate_df, rtt_df = aux_get_dataframes_from_db()
 
     # Aplica os filtros de cliente e/ou servidor, se necessário
-    if flags.client_specific != "False":
+    if flags.client_specific != "":
         bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
         rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
-    if flags.server_specific != "False":
+    if flags.server_specific != "":
         bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
         rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
 
     # Aplica o filtro de tempo com base no timestamp, se necessário
-    if flags.datahora_inicio != "False" and flags.datahora_final != "False":
+    if flags.datahora_inicio != "" and flags.datahora_final != "":
         # Converte datahora para timestamp utilizando a função auxiliar
         timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
         timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)

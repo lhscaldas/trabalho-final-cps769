@@ -41,9 +41,6 @@ for file in csv_files:
     if 'bitrate' in df.columns:
         df['bitrate'] = df['bitrate'].astype(int)
     
-    # Adicionar a coluna datahora convertendo timestamp de Unix para datetime
-    df['datahora'] = df['timestamp'].apply(lambda x: datetime.utcfromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-    
     # Nome da tabela no banco de dados (remover a extensão .csv)
     table_name = os.path.splitext(file)[0]
     
@@ -54,7 +51,6 @@ for file in csv_files:
         'timestamp': 'INTEGER',
         'rtt': 'REAL',
         'bitrate': 'INTEGER',
-        'datahora': 'TEXT'
     })
 
 # Fechar a conexão com o banco de dados

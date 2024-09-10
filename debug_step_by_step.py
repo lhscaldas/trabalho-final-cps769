@@ -14,8 +14,6 @@ def print_logical_steps(question, logical_steps):
 def debug_step_1(pergunta):
     """Função para testar o step_1_comprehend_question com uma pergunta."""
     
-    # Imprime a pergunta
-    print(f"Pergunta: {pergunta}\n")
     passos_logicos = step_1_comprehend_question(pergunta)
     print_logical_steps(pergunta, passos_logicos)
 
@@ -49,22 +47,27 @@ def debug_step_3(pergunta):
 
 if __name__ == "__main__":
     perguntas_debug = [
+        "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?",
+        "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre 07/06/2024 e 10/06/2024?",
         "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?",
-        # "Qual servidor fornece a QoE mais consistente para o cliente rj entre 07/06/2024 e 10/06/2024?",
-        # "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre 07/06/2024 e 10/06/2024?",
-        # "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre 07/06/2024 e 10/06/2024?",
-        # "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre 07/06/2024 e 10/06/2024?",
-        # "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre 07/06/2024 e 10/06/2024?",
+        "Qual servidor fornece a QoE mais consistente para o cliente rj entre 07/06/2024 e 10/06/2024?",
+        "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre 07/06/2024 e 10/06/2024?",
+        "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre 07/06/2024 e 10/06/2024?",
     ]
+        
     perguntas_fora_escopo = [
         "Qual o endereço de IP do cliente rj na rede?",
         "Qual é a previsão do tempo para amanhã?"
     ]   
 
     for pergunta in perguntas_debug:
-        debug_step_1(pergunta)
+        # Imprime a pergunta
+        print(f"Pergunta: {pergunta}\n")
+        # debug_step_1(pergunta)
         debug_step_2(pergunta)
-        debug_step_3(pergunta)
+        # debug_step_3(pergunta)
 
     # for pergunta in perguntas_fora_escopo:
+    #     # Imprime a pergunta
+    #     print(f"Pergunta: {pergunta}\n")
     #     debug_step_3(pergunta)

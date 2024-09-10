@@ -26,6 +26,111 @@ def aux_get_dataframes_from_db():
     
     return bitrate_df, rtt_df
 
+def aux_convert_datahora_to_timestamp(datahora_str):
+    """Converte uma string de datahora (YYYY-MM-DD HH:MM:SS) para timestamp Unix."""
+    dt = datetime.strptime(datahora_str, '%Y-%m-%d %H:%M:%S')
+    timestamp = int(time.mktime(dt.timetuple()))
+    return timestamp
+
+def aux_convert_timestamp_to_datahora(timestamp):
+    """
+    Converte um timestamp (em segundos desde a época) para uma string de data e hora.
+    """
+    datahora = datetime.fromtimestamp(timestamp)
+    return datahora.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def aux_calculate_bitrate_bursts(bitrate_df):
+    """
+    Função para calcular as rajadas de bitrate para cada combinação de cliente e servidor.
+    Identifica intervalos de tempo em que as medições de bitrate ocorrem em sequência,
+    separadas por no máximo 5 segundos, e calcula o bitrate médio dentro de cada rajada.
+
+    Parameters:
+    bitrate_df (DataFrame): DataFrame contendo as medições de bitrate com as colunas 'client',
+                            'server', 'timestamp', e 'bitrate'.
+
+    Returns:
+    DataFrame: DataFrame contendo as rajadas de bitrate para cada cliente-servidor, com colunas:
+        - 'client': Nome do cliente.
+        - 'server': Nome do servidor.
+        - 'timestamp_inicio': Início da rajada de bitrate.
+        - 'timestamp_final': Final da rajada de bitrate.
+        - 'bitrate_medio': Bitrate médio durante a rajada.
+    """
+    # Ordena o DataFrame por 'client', 'server' e 'timestamp' para garantir a ordem correta
+    bitrate_df = bitrate_df.sort_values(by=['client', 'server', 'timestamp']).reset_index(drop=True)
+
+    # Lista para armazenar todas as rajadas
+    all_bursts = []
+
+    # Agrupa o DataFrame por 'client' e 'server'
+    grouped = bitrate_df.groupby(['client', 'server'])
+
+    # Define o intervalo máximo de tempo entre medições para considerar uma continuação da rajada
+    max_time_diff = 5  # em segundos
+
+    for (client, server), group in grouped:
+        # Calcula a diferença de tempo entre medições consecutivas
+        group = group.copy()
+        group['time_diff'] = group['timestamp'].diff()
+
+        # Identifica o início de novas rajadas onde a diferença de tempo é maior que max_time_diff
+        group['new_burst'] = (group['time_diff'] > max_time_diff) | (group['time_diff'].isnull())
+
+        # Atribui um identificador único para cada rajada
+        group['burst_id'] = group['new_burst'].cumsum()
+
+        # Agrupa por 'burst_id' para calcular os detalhes de cada rajada
+        bursts = group.groupby('burst_id').agg(
+            client=('client', 'first'),
+            server=('server', 'first'),
+            timestamp_inicio=('timestamp', 'first'),
+            timestamp_final=('timestamp', 'last'),
+            bitrate_medio=('bitrate', 'mean')
+        ).reset_index(drop=True)
+
+        # Adiciona as rajadas do grupo atual à lista de todas as rajadas
+        all_bursts.append(bursts)
+
+    # Concatena todas as rajadas em um único DataFrame
+    bursts_df = pd.concat(all_bursts, ignore_index=True)
+
+    return bursts_df
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def aux_calcular_qoe(bitrate, rtt, min_bitrate, max_bitrate, min_rtt, max_rtt):
     """Função auxiliar para calcular a QoE"""
     bitrate_norm = (bitrate - min_bitrate) / (max_bitrate - min_bitrate)
@@ -40,36 +145,6 @@ def aux_simular_qoe_com_aumento_latencia(bitrate, rtt, aumento_percentual, min_b
     """Função auxiliar para simular aumento de latência"""
     novo_rtt = rtt * (1 + aumento_percentual / 100)
     return aux_calcular_qoe(bitrate, novo_rtt, min_bitrate, max_bitrate, min_rtt, max_rtt)
-
-def aux_calculate_bitrate_bursts(bitrate_df):
-    """Função auxiliar para calcular o bitrate médio por rajada."""
-    
-    # Ordenar por timestamp
-    bitrate_df = bitrate_df.sort_values(by='timestamp')
-    
-    bursts = []
-    current_burst = []
-    last_timestamp = None
-    
-    # Identificar as rajadas de medições
-    for _, row in bitrate_df.iterrows():
-        timestamp = row['timestamp']
-        if last_timestamp is None or timestamp - last_timestamp <= 5:
-            current_burst.append(row['bitrate'])
-        else:
-            # Quando a rajada termina, calcula a média do bitrate
-            if current_burst:
-                burst_average = sum(current_burst) / len(current_burst)
-                bursts.append(burst_average)
-            current_burst = [row['bitrate']]
-        last_timestamp = timestamp
-    
-    # Para a última rajada
-    if current_burst:
-        burst_average = sum(current_burst) / len(current_burst)
-        bursts.append(burst_average)
-    
-    return bursts
 
 def aux_find_latency_for_bursts(bitrate_df, rtt_df):
     """Função auxiliar para encontrar a latência que coincide com as rajadas de bitrate."""
@@ -106,11 +181,6 @@ def aux_find_latency_for_bursts(bitrate_df, rtt_df):
     
     return latency_for_bursts
 
-def aux_convert_datahora_to_timestamp(datahora_str):
-    """Converte uma string de datahora (YYYY-MM-DD HH:MM:SS) para timestamp Unix."""
-    dt = datetime.strptime(datahora_str, '%Y-%m-%d %H:%M:%S')
-    timestamp = int(time.mktime(dt.timetuple()))
-    return timestamp
 
 def aux_match_latency_with_bitrate_bursts(bursts_df, rtt_df):
     """
