@@ -231,21 +231,38 @@ def step_3_process_with_flags(flags):
         burts_df = aux_calculate_bitrate_bursts(bitrate_df)
         matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
         
-        # Adicionar colunas normalizadas ao matching_df
-        matching_df = aux_adicionar_normalizacao(matching_df)
+        # Obter pares únicos de client-server
+        pares = matching_df[['client', 'server']].drop_duplicates()
+        
+        qoe_list = []
 
-        # Calcular a QoE para cada linha do matching_df usando as colunas normalizadas
-        matching_df['QoE'] = matching_df.apply(
-            lambda row: aux_calcular_qoe(
-                row['bitrate_normalizado'], 
-                row['rtt_normalizado']
-            ), 
-            axis=1
-        )
-
+        for _, par in pares.iterrows():
+            client = par['client']
+            server = par['server']
+            
+            # Filtrar o matching_df para o par client-server atual
+            df_par = matching_df[(matching_df['client'] == client) & (matching_df['server'] == server)]
+            
+            # Adicionar colunas normalizadas ao df_par
+            df_par = aux_adicionar_normalizacao(df_par)
+            
+            # Calcular a QoE para cada linha do df_par usando as colunas normalizadas
+            df_par['QoE'] = df_par.apply(
+                lambda row: aux_calcular_qoe(
+                    row['bitrate_normalizado'], 
+                    row['rtt_normalizado']
+                ), 
+                axis=1
+            )
+            
+            qoe_list.append(df_par)
+        
+        # Concatenar todos os DataFrames com a coluna QoE
+        matching_df = pd.concat(qoe_list, ignore_index=True)
+        
         # A saída é o DataFrame com a coluna QoE adicionada
         print(matching_df['QoE'].max())
-        processed_data['QoE'] = matching_df
+    processed_data['QoE'] = matching_df
         
     return processed_data
 
