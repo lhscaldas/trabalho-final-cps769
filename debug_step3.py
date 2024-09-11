@@ -69,8 +69,6 @@ def debug_question_3():
     # Convertendo as colunas timestamp
     qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
     qoe_df = qoe_df.drop(columns=['timestamp'])
-
-    salvar_dataframes_em_txt([qoe_df], 'qoe_df.txt')
     
     print(f"Resultado do processamento: \n{qoe_df}")
 

@@ -70,7 +70,6 @@ def aux_convert_timestamp_to_datahora(timestamp):
     datahora = datetime.fromtimestamp(timestamp)
     return datahora.strftime('%Y-%m-%d %H:%M:%S')
 
-
 def aux_calculate_bitrate_bursts(bitrate_df):
     """
     Função para calcular as rajadas de bitrate para cada combinação de cliente e servidor.
@@ -153,7 +152,7 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
             
             # Manter apenas a primeira linha para preservar a estrutura
             matched_df_list[i] = matched_df_list[i].iloc[0:1]
-            matched_df_list[i]['rtt'] = round(avg_rtt,2)
+            matched_df_list[i]['rtt'] = round(avg_rtt, 2)
             matched_df_list[i]['timestamp'] = int(avg_timestamp)
 
     # Concatenar os DataFrames que coincidem
@@ -161,28 +160,35 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         matched_df = pd.concat(matched_df_list, ignore_index=True)
     else:
         matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência    
-  
+    
     return matched_df
 
 def aux_adicionar_normalizacao(matching_df):
     """
-    Adiciona colunas de rtt_normalizado e bitrate_normalizado ao DataFrame.
+    Adiciona colunas de rtt_normalizado e bitrate_normalizado ao DataFrame,
+    normalizando separadamente para cada par de cliente e servidor.
     """
-    # Calcular os valores mínimos e máximos de bitrate e rtt
-    min_bitrate = matching_df['bitrate'].min()
-    max_bitrate = matching_df['bitrate'].max()
-    min_rtt = matching_df['rtt'].min()
-    max_rtt = matching_df['rtt'].max()
+    def normalize_group(group):
+        # Calcular os valores mínimos e máximos de bitrate e rtt para o grupo
+        min_bitrate = group['bitrate'].min()
+        max_bitrate = group['bitrate'].max()
+        min_rtt = group['rtt'].min()
+        max_rtt = group['rtt'].max()
 
-    # Adicionar colunas normalizadas
-    matching_df['bitrate_normalizado'] = (matching_df['bitrate'] - min_bitrate) / (max_bitrate - min_bitrate)
-    matching_df['rtt_normalizado'] = (matching_df['rtt'] - min_rtt) / (max_rtt - min_rtt)
+        # Adicionar colunas normalizadas
+        group['bitrate_normalizado'] = (group['bitrate'] - min_bitrate) / (max_bitrate - min_bitrate)
+        group['rtt_normalizado'] = (group['rtt'] - min_rtt) / (max_rtt - min_rtt)
 
-    return matching_df
+        return group
+
+    # Aplicar a normalização para cada grupo de cliente e servidor
+    normalized_df = matching_df.groupby(['client', 'server']).apply(normalize_group).reset_index(drop=True)
+
+    return normalized_df
 
 def aux_calcular_qoe(bitrate_norm, rtt_norm):
     """Função auxiliar para calcular a QoE"""
-    return bitrate_norm / rtt_norm if rtt_norm != 0 else bitrate_norm / 0.0001
+    return bitrate_norm / rtt_norm if rtt_norm != 0 else bitrate_norm / 0.00001
 
 
 
