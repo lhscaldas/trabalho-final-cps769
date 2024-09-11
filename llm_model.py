@@ -209,7 +209,7 @@ def step_3_process_with_flags(flags):
         rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
 
     # Aplica o filtro de tempo com base no timestamp, se necessário
-    if flags.datahora_inicio != False and flags.datahora_final != False:
+    if flags.datahora_inicio != "" and flags.datahora_final != "":
         timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
         timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
         bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
@@ -223,9 +223,30 @@ def step_3_process_with_flags(flags):
     # Flag para calcular a latência para as rajadas de bitrate
     if flags.latency_for_bursts:
         burts_df = aux_calculate_bitrate_bursts(bitrate_df)
-        latency_for_bursts = aux_find_latency_for_bursts(burts_df, rtt_df)
-        processed_data['latency_for_bursts'] = latency_for_bursts
-    
+        matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
+        processed_data['latency_for_bursts'] = matching_df
+
+    # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
+    if flags.qoe_required:
+        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
+        matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
+        
+        # Adicionar colunas normalizadas ao matching_df
+        matching_df = aux_adicionar_normalizacao(matching_df)
+
+        # Calcular a QoE para cada linha do matching_df usando as colunas normalizadas
+        matching_df['QoE'] = matching_df.apply(
+            lambda row: aux_calcular_qoe(
+                row['bitrate_normalizado'], 
+                row['rtt_normalizado']
+            ), 
+            axis=1
+        )
+
+        # A saída é o DataFrame com a coluna QoE adicionada
+        print(matching_df['QoE'].max())
+        processed_data['QoE'] = matching_df
+        
     return processed_data
 
 # def step_3_old(flags):

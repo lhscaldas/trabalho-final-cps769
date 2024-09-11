@@ -57,11 +57,24 @@ flags_3 = FlagOutput(
     bitrate_average=False,
     latency_for_bursts=False,
     unrelated_to_db=False,
-    client_specific="",
-    server_specific="",
-    datahora_inicio="",
-    datahora_final=""
+    client_specific='rj',
+    server_specific='pi',
+    datahora_inicio='2024-06-07 08:00:00',
+    datahora_final='2024-06-07 23:00:00'
+    # client_specific="",
+    # server_specific="",
+    # datahora_inicio="",
+    # datahora_final=""
 )
+def debug_question_3():
+    processed_data = step_3_process_with_flags(flags_3)
+    qoe_df = processed_data['QoE']
+    
+    # Convertendo as colunas timestamp
+    qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
+    qoe_df = qoe_df.drop(columns=['timestamp'])
+    
+    print(f"Resultado do processamento: \n{qoe_df}")
 
 # Pergunta 4: Qual servidor fornece a QoE mais consistente para o cliente rj entre 07/06/2024 e 10/06/2024?
 flags_4 = FlagOutput(
@@ -107,7 +120,7 @@ flags_6 = FlagOutput(
 
 
 if __name__ == "__main__":
-    debug_question_2()
+    debug_question_3()
     
 
 

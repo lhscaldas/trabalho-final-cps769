@@ -20,6 +20,20 @@ def salvar_dataframes_em_txt(dataframes, arquivo_saida):
             df.to_string(f)
             f.write("\n\n")  # Adiciona uma linha em branco entre os DataFrames
 
+def salvar_variaveis_em_txt(variaveis, arquivo_saida):
+    """
+    Salva uma lista de variáveis em sequência em um arquivo de texto.
+    
+    Parâmetros:
+    - variaveis: Lista de variáveis a serem salvas.
+    - arquivo_saida: Caminho do arquivo de saída.
+    """
+    with open(arquivo_saida, 'w') as f:
+        for i, var in enumerate(variaveis):
+            f.write(f"Variável {i+1}:\n")
+            f.write(str(var))
+            f.write("\n\n")  # Adiciona uma linha em branco entre as variáveis
+
 def aux_get_dataframes_from_db():
     """Função auxiliar para extrair as tabelas do banco de dados e convertê-las em dataframes"""
     
@@ -129,10 +143,7 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         # Adicionar as medições encontradas para a lista
         if not matching_rtt.empty:
             matching_rtt['bitrate'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
-            matching_rtt['datahora'] = matching_rtt['timestamp'].apply(aux_convert_timestamp_to_datahora)
             matched_df_list.append(matching_rtt)
-    
-    salvar_dataframes_em_txt(matched_df_list, 'matched_df_list.txt')
 
     # Reduzir os DataFrames com mais de uma linha a uma única linha calculando a média do RTT e do timestamp
     for i in range(len(matched_df_list)):
@@ -150,48 +161,57 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         matched_df = pd.concat(matched_df_list, ignore_index=True)
     else:
         matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência    
-
-    rtt_df['datahora'] = rtt_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    salvar_dataframes_em_txt([bursts_df,rtt_df,matched_df], 'matched_df.txt')
-    
-
+  
     return matched_df
 
+def aux_adicionar_normalizacao(matching_df):
+    """
+    Adiciona colunas de rtt_normalizado e bitrate_normalizado ao DataFrame.
+    """
+    # Calcular os valores mínimos e máximos de bitrate e rtt
+    min_bitrate = matching_df['bitrate'].min()
+    max_bitrate = matching_df['bitrate'].max()
+    min_rtt = matching_df['rtt'].min()
+    max_rtt = matching_df['rtt'].max()
 
+    # Adicionar colunas normalizadas
+    matching_df['bitrate_normalizado'] = (matching_df['bitrate'] - min_bitrate) / (max_bitrate - min_bitrate)
+    matching_df['rtt_normalizado'] = (matching_df['rtt'] - min_rtt) / (max_rtt - min_rtt)
 
+    return matching_df
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def aux_calcular_qoe(bitrate, rtt, min_bitrate, max_bitrate, min_rtt, max_rtt):
+def aux_calcular_qoe(bitrate_norm, rtt_norm):
     """Função auxiliar para calcular a QoE"""
-    bitrate_norm = (bitrate - min_bitrate) / (max_bitrate - min_bitrate)
-    rtt_norm = (rtt - min_rtt) / (max_rtt - min_rtt)
-    return bitrate_norm / rtt_norm if rtt_norm != 0 else 0
+    return bitrate_norm / rtt_norm if rtt_norm != 0 else bitrate_norm / 0.0001
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def aux_calcular_variancia_qoe(qoe_list):
     """Função auxiliar para calcular a variância da QoE"""
@@ -201,41 +221,6 @@ def aux_simular_qoe_com_aumento_latencia(bitrate, rtt, aumento_percentual, min_b
     """Função auxiliar para simular aumento de latência"""
     novo_rtt = rtt * (1 + aumento_percentual / 100)
     return aux_calcular_qoe(bitrate, novo_rtt, min_bitrate, max_bitrate, min_rtt, max_rtt)
-
-# def aux_find_latency_for_bursts(bitrate_df, rtt_df):
-#     """Função auxiliar para encontrar a latência que coincide com as rajadas de bitrate."""
-    
-#     # Ordenar os DataFrames por timestamp
-#     bitrate_df = bitrate_df.sort_values(by='timestamp')
-#     rtt_df = rtt_df.sort_values(by='timestamp')
-    
-#     latency_for_bursts = []
-#     current_burst_timestamps = []
-#     last_timestamp = None
-    
-#     # Identificar as rajadas de timestamps do bitrate
-#     for _, row in bitrate_df.iterrows():
-#         timestamp = row['timestamp']
-#         if last_timestamp is None or timestamp - last_timestamp <= 5:
-#             current_burst_timestamps.append(timestamp)
-#         else:
-#             if current_burst_timestamps:
-#                 # Buscar as latências que coincidem com o intervalo da rajada
-#                 burst_start = min(current_burst_timestamps)
-#                 burst_end = max(current_burst_timestamps)
-#                 latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
-#                 latency_for_bursts.append(latencies_in_burst)
-#             current_burst_timestamps = [timestamp]
-#         last_timestamp = timestamp
-    
-#     # Para a última rajada de timestamps
-#     if current_burst_timestamps:
-#         burst_start = min(current_burst_timestamps)
-#         burst_end = max(current_burst_timestamps)
-#         latencies_in_burst = rtt_df[(rtt_df['timestamp'] >= burst_start) & (rtt_df['timestamp'] <= burst_end)]['rtt'].tolist()
-#         latency_for_bursts.append(latencies_in_burst)
-    
-#     return latency_for_bursts
 
 
 
