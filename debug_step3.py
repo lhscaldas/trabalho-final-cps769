@@ -44,10 +44,10 @@ def debug_question_2():
     matched_df = processed_data['latency_for_bursts']
     
     # Convertendo as colunas timestamp
-    # matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    # matched_df = matched_df.drop(columns=['timestamp'])
+    matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
+    matched_df = matched_df.drop(columns=['timestamp'])
     
-    # print(f"Resultado do processamento: \n{matched_df}")
+    print(f"Resultado do processamento: \n{matched_df}")
 
 # Pergunta 3: Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?
 flags_3 = FlagOutput(

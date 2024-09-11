@@ -120,34 +120,40 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         cliente = burst['client']
         servidor = burst['server']
 
-        # print(f"\nProcessando rajada: Cliente={cliente}, Servidor={servidor}, Início={burst_start}, Fim={burst_end}")
-
         # Filtrar as medições de latência que coincidem com essa rajada de bitrate e o par cliente-servidor
         matching_rtt = rtt_df[(rtt_df['timestamp'] >= burst_start - 150) & 
                               (rtt_df['timestamp'] <= burst_end + 150) & 
                               (rtt_df['client'] == cliente) & 
                               (rtt_df['server'] == servidor)]
 
-        # print(f"Medidas de latência encontradas: {len(matching_rtt)}")
-        # print(matching_rtt)
-
         # Adicionar as medições encontradas para a lista
         if not matching_rtt.empty:
-            matching_rtt['bitrate_medio'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
+            matching_rtt['bitrate'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
+            matching_rtt['datahora'] = matching_rtt['timestamp'].apply(aux_convert_timestamp_to_datahora)
             matched_df_list.append(matching_rtt)
+    
+    salvar_dataframes_em_txt(matched_df_list, 'matched_df_list.txt')
+
+    # Reduzir os DataFrames com mais de uma linha a uma única linha calculando a média do RTT e do timestamp
+    for i in range(len(matched_df_list)):
+        if len(matched_df_list[i]) > 1:
+            avg_rtt = matched_df_list[i]['rtt'].mean()
+            avg_timestamp = matched_df_list[i]['timestamp'].mean()
+            
+            # Manter apenas a primeira linha para preservar a estrutura
+            matched_df_list[i] = matched_df_list[i].iloc[0:1]
+            matched_df_list[i]['rtt'] = round(avg_rtt,2)
+            matched_df_list[i]['timestamp'] = int(avg_timestamp)
 
     # Concatenar os DataFrames que coincidem
     if matched_df_list:
         matched_df = pd.concat(matched_df_list, ignore_index=True)
     else:
-        matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência
+        matched_df = pd.DataFrame()  # Retornar DataFrame vazio se não houver correspondência    
 
-    # print("\nDataFrame final combinado:")
-    bursts_df['datahora_inicio'] = bursts_df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora)
     rtt_df['datahora'] = rtt_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
     matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-
-    salvar_dataframes_em_txt([bursts_df,rtt_df,matched_df], 'saida.txt')
+    salvar_dataframes_em_txt([bursts_df,rtt_df,matched_df], 'matched_df.txt')
     
 
     return matched_df
