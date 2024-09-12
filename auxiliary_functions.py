@@ -190,10 +190,6 @@ def aux_calcular_qoe(bitrate_norm, rtt_norm):
     """Função auxiliar para calcular a QoE"""
     return bitrate_norm / rtt_norm if rtt_norm != 0 else bitrate_norm / 0.00001
 
-def aux_calcular_variancia_qoe(qoe_list):
-    """Função auxiliar para calcular a variância da QoE"""
-    return np.var(qoe_list)
-
 def aux_simular_qoe_com_aumento_latencia(bitrate, rtt, aumento_percentual, min_bitrate, max_bitrate, min_rtt, max_rtt):
     """Função auxiliar para simular aumento de latência"""
     novo_rtt = rtt * (1 + aumento_percentual / 100)
