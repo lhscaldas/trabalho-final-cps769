@@ -1,56 +1,42 @@
 from auxiliary_functions import *
-from llm_model import FlagOutput, step_3_process_with_flags
-import pandas as pd
+from step_3 import FlagAndParams, step_3_process_with_flags
 
 # Pergunta 1: Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?
-flags_1 = FlagOutput(
-    qoe_required=False,
-    latency_increase=False,
-    server_variance=False,
-    bitrate_average=True,
-    latency_for_bursts=False,
+question_1 = FlagAndParams(
     unrelated_to_db=False,
-    client_specific='rj',
-    server_specific='pi', 
+    bitrate_burts=True,
+    latency_match=False,
+    worst_qoe_client=False,
+    server_qoe_consistency=False,
+    server_change_strategy=False,
+    qoe_change=False,
     datahora_inicio='2024-06-07 08:00:00',
-    datahora_final='2024-06-07 09:00:00'
+    datahora_final='2024-06-07 09:00:00',
+    client='rj',
+    server='pi', 
+    bitrate_delta=0,
+    latency_delta=0
 )
-def debug_question_1():
-    processed_data = step_3_process_with_flags(flags_1)
-    burts_df = processed_data['bitrate_bursts']
-    
-    # Convertendo as colunas timestamp
-    burts_df['datahora_inicio'] = burts_df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora)
-    burts_df['datahora_final'] = burts_df['timestamp_final'].apply(aux_convert_timestamp_to_datahora)
-    burts_df = burts_df.drop(columns=['timestamp_inicio', 'timestamp_final'])
-    
-    print(f"Resultado do processamento: \n{burts_df}")
 
 # Pergunta 2: Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?
-flags_2 = FlagOutput(
-    qoe_required=False,
-    latency_increase=False,
-    server_variance=False,
-    bitrate_average=False,
-    latency_for_bursts=True,
+question_2 = FlagAndParams(
     unrelated_to_db=False,
-    client_specific='rj',
-    server_specific='pi',
+    bitrate_burts=False,
+    latency_match=True,
+    worst_qoe_client=False,
+    server_qoe_consistency=False,
+    server_change_strategy=False,
+    qoe_change=False,
     datahora_inicio='2024-06-07 08:00:00',
-    datahora_final='2024-06-07 09:00:00'
+    datahora_final='2024-06-07 09:00:00',
+    client='rj',
+    server='pi', 
+    bitrate_delta=0,
+    latency_delta=0
 )
-def debug_question_2():
-    processed_data = step_3_process_with_flags(flags_2)
-    matched_df = processed_data['latency_for_bursts']
-    
-    # Convertendo as colunas timestamp
-    matched_df['datahora'] = matched_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    matched_df = matched_df.drop(columns=['timestamp'])
-    
-    print(f"Resultado do processamento: \n{matched_df}")
 
 # Pergunta 3: Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?
-flags_3 = FlagOutput(
+question_3 = FlagAndParams(
     qoe_required=True,
     latency_increase=False,
     server_variance=False,
@@ -62,18 +48,9 @@ flags_3 = FlagOutput(
     datahora_inicio="",
     datahora_final=""
 )
-def debug_question_3():
-    processed_data = step_3_process_with_flags(flags_3)
-    qoe_df = processed_data['QoE']
-    
-    # Convertendo as colunas timestamp
-    qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    qoe_df = qoe_df.drop(columns=['timestamp'])
-    
-    print(f"Resultado do processamento: \n{qoe_df}")
 
 # Pergunta 4: Qual servidor fornece a QoE mais consistente para o cliente rj entre 07/06/2024 e 10/06/2024?
-flags_4 = FlagOutput(
+question_4 = FlagAndParams(
     qoe_required=True,
     latency_increase=False,
     server_variance=True,
@@ -88,21 +65,9 @@ flags_4 = FlagOutput(
     datahora_final='2024-06-07 09:00:00'
 )
 
-def debug_question_4():
-    processed_data = step_3_process_with_flags(flags_4)
-    qoe_df = processed_data['QoE']
-    qoe_variance = processed_data['QoE Variance']
-
-    # Convertendo as colunas timestamp
-    qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    qoe_df = qoe_df.drop(columns=['timestamp'])
-
-    print(f"Resultado do processamento: \n{qoe_df}"
-          f"\n\nVariância da QoE: \n {qoe_variance}")
-
 
 # Pergunta 5: Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre 07/06/2024 e 10/06/2024?
-flags_5 = FlagOutput(
+question_5 = FlagAndParams(
     qoe_required=True,
     latency_increase=False,
     server_variance=False,
@@ -117,18 +82,8 @@ flags_5 = FlagOutput(
     datahora_final='2024-06-07 09:00:00'
 )
 
-def debug_question_5():
-    processed_data = step_3_process_with_flags(flags_5)
-    qoe_df = processed_data['QoE']
-    
-    # Convertendo as colunas timestamp
-    qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    qoe_df = qoe_df.drop(columns=['timestamp'])
-    
-    print(f"Resultado do processamento: \n{qoe_df}")
-
 # Pergunta 6: Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre 07/06/2024 e 10/06/2024?
-flags_6 = FlagOutput(
+question_6 = FlagAndParams(
     qoe_required=True,
     latency_increase=True,
     server_variance=False,
@@ -143,18 +98,13 @@ flags_6 = FlagOutput(
     datahora_final='2024-06-07 09:00:00'
 )
 
-def debug_question_6():
-    processed_data = step_3_process_with_flags(flags_6)
-    qoe_df = processed_data['QoE_simulado']
-    
-    # Convertendo as colunas timestamp
-    qoe_df['datahora'] = qoe_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-    qoe_df = qoe_df.drop(columns=['timestamp'])
-    
-    print(f"Resultado do processamento: \n{qoe_df}")
-
 if __name__ == "__main__":
-    debug_question_6()
+    processed_data = step_3_process_with_flags(question_1)
+    processed_df = pd.DataFrame(processed_data)
+    print(f"Resultado do processamento: \n{processed_df}")
+    processed_data = step_3_process_with_flags(question_2)
+    processed_df = pd.DataFrame(processed_data)
+    print(f"Resultado do processamento: \n{processed_df}")
     
 
 

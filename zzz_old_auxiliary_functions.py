@@ -3,7 +3,8 @@ import pandas as pd
 pd.options.mode.copy_on_write = True
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+import calendar
 
 def salvar_dataframes_em_txt(dataframes, arquivo_saida):
     """
@@ -68,18 +69,6 @@ def aux_convert_timestamp_to_datahora(timestamp):
     """
     datahora = datetime.fromtimestamp(timestamp)
     return datahora.strftime('%Y-%m-%d %H:%M:%S')
-
-def aux_filter_by_time(df, datahora_inicio, datahora_final):
-    """
-    Filtra um DataFrame para manter apenas as linhas que estão dentro de um intervalo de tempo.
-    """
-    if datahora_inicio != "2024-06-07 00:00:00" or datahora_final != "2024-06-10 23:59:59":
-        timestamp_inicio = aux_convert_datahora_to_timestamp(datahora_inicio)
-        timestamp_final = aux_convert_datahora_to_timestamp(datahora_final)     
-        df = df[(df['timestamp'] >= timestamp_inicio) & (df['timestamp'] <= timestamp_final)]
-    
-    return df
-    
 
 def aux_calculate_bitrate_bursts(bitrate_df):
     """
@@ -153,19 +142,18 @@ def aux_find_latency_for_bursts(bursts_df, rtt_df):
         # Adicionar as medições encontradas para a lista
         if not matching_rtt.empty:
             matching_rtt['bitrate'] = burst['bitrate_medio']  # Associar o bitrate médio da rajada de bitrate
-            # Calcular a média entre burst_start e burst_end
-            avg_timestamp = (burst_start + burst_end) / 2
-            matching_rtt['timestamp'] = avg_timestamp  # Atribuir a média ao timestamp
             matched_df_list.append(matching_rtt)
 
     # Reduzir os DataFrames com mais de uma linha a uma única linha calculando a média do RTT e do timestamp
     for i in range(len(matched_df_list)):
         if len(matched_df_list[i]) > 1:
             avg_rtt = matched_df_list[i]['rtt'].mean()
+            avg_timestamp = matched_df_list[i]['timestamp'].mean()
             
             # Manter apenas a primeira linha para preservar a estrutura
             matched_df_list[i] = matched_df_list[i].iloc[0:1]
             matched_df_list[i]['rtt'] = round(avg_rtt, 2)
+            matched_df_list[i]['timestamp'] = int(avg_timestamp)
 
     # Concatenar os DataFrames que coincidem
     if matched_df_list:

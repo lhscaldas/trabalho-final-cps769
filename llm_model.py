@@ -1,7 +1,6 @@
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-import pandas as pd
 from auxiliary_functions import *
 
 import os
