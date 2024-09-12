@@ -215,22 +215,22 @@ def step_3_process_with_flags(flags):
         bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
         rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
 
-    # Flag para calcular o bitrate médio por rajada
+    # Calcula o bitrate médio por rajada
+    burts_df = aux_calculate_bitrate_bursts(bitrate_df)
+
+    # Calcula a latência para as rajadas de bitrate
+    matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
+
+    # Flag para responder o bitrate médio por rajada
     if flags.bitrate_average:
-        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
         processed_data['bitrate_bursts'] = burts_df
 
-    # Flag para calcular a latência para as rajadas de bitrate
+    # Flag para responder a latência para as rajadas de bitrate
     if flags.latency_for_bursts:
-        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
-        matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
         processed_data['latency_for_bursts'] = matching_df
 
     # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
     if flags.qoe_required:
-        burts_df = aux_calculate_bitrate_bursts(bitrate_df)
-        matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
-        
         # Adicionar colunas normalizadas ao matching_df
         matching_df = aux_adicionar_normalizacao(matching_df)
 

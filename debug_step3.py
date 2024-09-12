@@ -116,7 +116,7 @@ flags_6 = FlagOutput(
 
 
 if __name__ == "__main__":
-    debug_question_3()
+    debug_question_1()
     
 
 
