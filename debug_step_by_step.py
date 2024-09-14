@@ -44,6 +44,26 @@ def debug_step_3(pergunta):
     
     # Imprime o resultado do processamento
     print(f"Resultado do processamento: {processed_data}")
+    print("\n")
+
+def debug_step_4(pergunta):
+    """Função para testar o step_4_generate_answer com uma pergunta."""
+    
+    # Step 1: Compreensão da pergunta para obter os passos lógicos
+    passos_logicos = step_1_comprehend_question(pergunta)
+    
+    # Step 2: Geração de flags com base nos passos lógicos
+    flags = step_2_generate_flags(passos_logicos)
+    
+    # Step 3: Processamento com base nas flags geradas
+    processed_data, _ = step_3_process_with_flags(pergunta, flags)
+    
+    # Step 4: Geração da resposta com base nos dados processados
+    resposta = step_4_generate_response(processed_data)
+    
+    # Imprime a resposta gerada
+    print(f"Resposta gerada: {resposta}")
+    print("\n")
 
 if __name__ == "__main__":
     perguntas_debug = [
@@ -62,12 +82,13 @@ if __name__ == "__main__":
 
     for pergunta in perguntas_debug:
         # Imprime a pergunta
-        print(f"Pergunta: {pergunta}\n")
+        print(f"Pergunta: {pergunta}")
         # debug_step_1(pergunta)
-        debug_step_2(pergunta)
+        # debug_step_2(pergunta)
         # debug_step_3(pergunta)
+        debug_step_4(pergunta)
 
-    # for pergunta in perguntas_fora_escopo:
-    #     # Imprime a pergunta
-    #     print(f"Pergunta: {pergunta}\n")
-    #     debug_step_3(pergunta)
+    for pergunta in perguntas_fora_escopo:
+        # Imprime a pergunta
+        print(f"Pergunta: {pergunta}")
+        debug_step_4(pergunta)

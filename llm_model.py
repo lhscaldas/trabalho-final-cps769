@@ -209,15 +209,17 @@ def step_2_generate_flags(logical_steps):
     flags = flag_llm.invoke(logical_steps)
     return flags
 
-def step_3_process_with_flags(flags):
+def step_3_process_with_flags(question, flags):
     """Step 3: Processa os dados com base nas flags geradas no step_2."""
     processed_data = {}
+    processed_data['question'] = question
+    df = pd.DataFrame()
 
     # Verifica se a pergunta é considerada não relacionada ao banco de dados
     if flags.unrelated_to_db:
         processed_data['info'] = "A pergunta não está relacionada ao banco de dados disponível."
         # Encerra o processamento
-        return processed_data
+        return processed_data, df
 
     # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
     bitrate_df, rtt_df = aux_get_dataframes_from_db()
@@ -410,102 +412,6 @@ def step_3_process_with_flags(flags):
 
     return processed_data, df
 
-def old(flags):
-    """Step 3: Processa os dados com base nas flags geradas no step_2."""
-    processed_data = {}
-
-    # Verifica se a pergunta é considerada não relacionada ao banco de dados
-    if flags.unrelated_to_db:
-        processed_data['info'] = "A pergunta não está relacionada ao banco de dados disponível."
-        return processed_data
-
-    # Extrai os DataFrames do banco de dados (essa função deve lidar com a extração dos dados)
-    bitrate_df, rtt_df = aux_get_dataframes_from_db()
-
-    # Aplica os filtros de cliente e/ou servidor, se necessário
-    if flags.client_specific != "":
-        bitrate_df = bitrate_df[bitrate_df['client'] == flags.client_specific]
-        rtt_df = rtt_df[rtt_df['client'] == flags.client_specific]
-    if flags.server_specific != "":
-        bitrate_df = bitrate_df[bitrate_df['server'] == flags.server_specific]
-        rtt_df = rtt_df[rtt_df['server'] == flags.server_specific]
-
-    # Aplica o filtro de tempo com base no timestamp, se necessário
-    if flags.datahora_inicio != "" and flags.datahora_final != "":
-        timestamp_inicio = aux_convert_datahora_to_timestamp(flags.datahora_inicio)
-        timestamp_final = aux_convert_datahora_to_timestamp(flags.datahora_final)
-        bitrate_df = bitrate_df[(bitrate_df['timestamp'] >= timestamp_inicio) & (bitrate_df['timestamp'] <= timestamp_final)]
-        rtt_df = rtt_df[(rtt_df['timestamp'] >= timestamp_inicio) & (rtt_df['timestamp'] <= timestamp_final)]
-
-    # Calcula o bitrate médio por rajada
-    burts_df = aux_calculate_bitrate_bursts(bitrate_df)
-
-    # Calcula a latência para as rajadas de bitrate
-    matching_df = aux_find_latency_for_bursts(burts_df, rtt_df)
-
-    # Flag para responder o bitrate médio por rajada
-    if flags.bitrate_average:
-        processed_data['bitrate_bursts'] = burts_df
-
-    # Flag para responder a latência para as rajadas de bitrate
-    if flags.latency_for_bursts:
-        processed_data['latency_for_bursts'] = matching_df
-
-    # Flag para calcular a QoE apenas quando a latência coincidir com uma rajada de bitrate
-    if flags.qoe_required:
-        # Adicionar colunas normalizadas ao matching_df
-        matching_df = aux_adicionar_normalizacao(matching_df)
-
-        # Calcular a QoE para cada linha do matching_df usando as colunas normalizadas
-        matching_df['QoE'] = matching_df.apply(
-            lambda row: aux_calcular_qoe(
-                row['bitrate_normalizado'], 
-                row['rtt_normalizado']
-            ), 
-            axis=1
-        )
-
-        # A saída é o DataFrame com a coluna QoE adicionada
-        processed_data['QoE'] = matching_df
-
-    # Flag para calcular a variância da QoE por servidor
-    if flags.server_variance:
-        matching_df = processed_data['QoE']
-        print(matching_df.groupby('server')['QoE'])
-        variance_by_server = matching_df.groupby('server')['QoE'].var().to_dict()
-        processed_data['QoE Variance'] = variance_by_server
-
-    # Flag para simular aumento de latência
-    if flags.latency_increase:       
-
-        # Calcular a QoE para cada linha do matching_df usando as colunas normalizadas
-        matching_df = aux_adicionar_normalizacao(matching_df)
-        matching_df['QoE'] = matching_df.apply(
-            lambda row: aux_calcular_qoe(
-                row['bitrate_normalizado'], 
-                row['rtt_normalizado']
-            ), 
-            axis=1
-        )
-
-        # Calcular a QoE novo para cada linha do matching_df
-        matching_df_new = matching_df.copy()
-        matching_df_new['rtt'] = matching_df_new['rtt'] * (1 + 20 / 100)
-        matching_df_new = aux_adicionar_normalizacao(matching_df_new)
-        matching_df['rtt_new'] = matching_df_new['rtt']
-        matching_df['rtt_new_normalizado'] = matching_df_new['rtt_normalizado']
-        matching_df['QoE_novo'] = matching_df.apply(
-            lambda row: aux_calcular_qoe(
-                row['bitrate_normalizado'], 
-                row['rtt_new_normalizado']
-            ), 
-            axis=1
-        )
-
-        # A saída é o DataFrame com a coluna QoE adicionada
-        processed_data['QoE_simulado'] = matching_df
-            
-    return processed_data
 
 class NaturalLanguageResponse(BaseModel):
     """Estrutura para a resposta em linguagem natural"""
@@ -514,10 +420,80 @@ class NaturalLanguageResponse(BaseModel):
 def step_4_generate_response(processed_data):
     """Step 4: Geração de Resposta em Linguagem Natural"""
     system_prompt_4 = """
-        You are an AI tasked with generating a natural language response based on the processed data. Use the processed data to generate a coherent response.
+        You are an AI tasked with generating a natural language response based on the processed data. Use the processed data to generate a coherent and contextually accurate response to the user's question.
 
-        Processed Data:
-        {processed_data}
+        **Guidelines**:
+        1. Always generate a response based on the `processed_data`.
+        2. If the question is unrelated to the available database, respond appropriately by indicating that the information is not available in the network measurement data.
+        3. For calculations such as averages, variance, or other metrics, provide a summary in clear, concise language.
+        4. Include relevant details such as time periods, clients, or servers when applicable.
+
+        **Examples**:
+
+        1. **Question**: "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'client': ..., 'server': ..., 'bitrate_bursts': ...}
+        - **Response**: 
+            "Entre 08:00 e 09:00 do dia 07/06/2024, o bitrate médio dentro de cada rajada para o cliente 'rj' e o servidor 'pi' foi calculado da seguinte maneira:
+            - 08:03:05 a 08:03:08: 281896.67 bps
+            - 08:08:05 a 08:08:07: 318607.07 bps
+            - 08:13:05 a 08:13:08: 271408.00 bps
+            - 08:18:05 a 08:18:08: 306599.33 bps
+            - 08:23:05 a 08:23:08: 305519.53 bps
+            - E assim por diante."
+
+        2. **Question**: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'client': ..., 'server': ..., 'latency': ...}
+        - **Response**: 
+            "Entre 08:00 e 09:00 do dia 07/06/2024, as latências que coincidiram com as rajadas de bitrate para o cliente 'rj' e o servidor 'pi' foram as seguintes:
+            - 08:03:06: 41.84 ms
+            - 08:08:06: 41.86 ms
+            - 08:13:06: 41.83 ms
+            - 08:18:06: 41.85 ms
+            - 08:28:06: 38.10 ms
+            - E assim por diante."
+
+        3. **Question**: "Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'worst_client': 'ba', 'worst_client_mean_qoe': ...}
+        - **Response**: 
+            "Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi 'ba', com uma média de QoE de 3.16."
+
+        4. **Question**: "Qual servidor fornece a QoE mais consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'qoe_variance': ..., 'best_qoe_variance': ...}
+        - **Response**: 
+            "Entre 08:00 e 09:00 do dia 07/06/2024, o servidor 'pi' forneceu a QoE mais consistente para o cliente 'rj', com a menor variação de QoE de 0.0139."
+
+        5. **Question**: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'server_change_strategy': ..., 'QoE': ...}
+        - **Response**: 
+            "Entre 08:00 e 09:00 do dia 07/06/2024, a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente 'rj' é a seguinte:
+            - De 08:02:36 a 08:03:06: Servidor 'df'
+            - De 08:03:06 a 08:03:36: Servidor 'pi'
+            - De 08:03:36 a 08:08:06: Servidor 'ce'
+            - E assim por diante."
+
+        6. **Question**: "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre as 08 e 09h do dia 07/06/2024?"
+        - **Processed Data**: {'QoE': ..., 'new_QoE': ...}
+        - **Response**: 
+            "Se a latência aumentar 20% entre 08:00 e 09:00 do dia 07/06/2024 para o cliente 'rj' e servidor 'pi', a qualidade de experiência (QoE) mudaria da seguinte maneira:
+            - 08:03:06: De 0.4448 para 0.4448
+            - 08:08:06: De 0.6572 para 0.6572
+            - 08:13:06: De 0.3842 para 0.3842
+            - E assim por diante."
+
+        7. **Question**: "Qual o endereço de IP do cliente rj na rede?"
+        - **Processed Data**: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
+        - **Response**: 
+            "A pergunta não está relacionada aos dados de medições de rede disponíveis no banco de dados."
+
+        8. **Question**: "Qual é a previsão do tempo para amanhã?"
+        - **Processed Data**: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
+        - **Response**: 
+            "A pergunta não está relacionada aos dados de medições de rede disponíveis no banco de dados."
+
+        **Final Instructions**:
+        - Always adapt the response based on the question and the specific `processed_data` provided.
+        - Ensure clarity and coherence in the final response.
+        - Include relevant details such as time periods, clients, servers, or calculated metrics in the response.
     """
     
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt_4), ("human", "{processed_data}")])
@@ -538,7 +514,7 @@ def responder_pergunta(pergunta):
     
     # 4. Processamento dos Dados com base nas flags
     print("Step 3: Processando os dados com base nas flags...")
-    dados_processados = step_3_process_with_flags(flags)
+    dados_processados = step_3_process_with_flags(pergunta, flags)
     
     # 5. Geração de Resposta em Linguagem Natural
     print("Step 4: Gerando a resposta em linguagem natural...")

@@ -1,0 +1,255 @@
+Leia os processed_data para cada pergunta abaixo:
+
+Pergunta: Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período 
+entre as 08 e 09h do dia 07/06/2024?
+Resultado do processamento: {'client': 0     rj
+1     rj
+2     rj
+3     rj
+4     rj
+5     rj
+6     rj
+7     rj
+8     rj
+9     rj
+10    rj
+11    rj
+Name: client, dtype: object, 'server': 0     pi
+1     pi
+2     pi
+3     pi
+4     pi
+5     pi
+6     pi
+7     pi
+8     pi
+9     pi
+10    pi
+11    pi
+Name: server, dtype: object, 'datahora_inicio': 0     2024-06-07 08:03:05
+1     2024-06-07 08:08:05
+2     2024-06-07 08:13:05
+3     2024-06-07 08:18:05
+4     2024-06-07 08:23:05
+5     2024-06-07 08:28:05
+6     2024-06-07 08:33:05
+7     2024-06-07 08:38:05
+8     2024-06-07 08:43:06
+9     2024-06-07 08:48:06
+10    2024-06-07 08:53:06
+11    2024-06-07 08:58:06
+Name: timestamp_inicio, dtype: object, 'datahora_final': 0     2024-06-07 08:03:08
+1     2024-06-07 08:08:07
+2     2024-06-07 08:13:08
+3     2024-06-07 08:18:08
+4     2024-06-07 08:23:08
+5     2024-06-07 08:28:08
+6     2024-06-07 08:33:08
+7     2024-06-07 08:38:08
+8     2024-06-07 08:43:08
+9     2024-06-07 08:48:08
+10    2024-06-07 08:53:08
+11    2024-06-07 08:58:08
+Name: timestamp_final, dtype: object, 'bitrate_bursts': 0     281896.666667
+1     318607.066667
+2     271408.000000
+3     306599.333333
+4     305519.533333
+5     284570.733333
+6     282189.466667
+7     276509.800000
+8     319331.800000
+9     279828.533333
+10    277090.200000
+11    289222.733333
+Name: bitrate_medio, dtype: float64}
+
+
+Pergunta: Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?
+Resultado do processamento: {'client': 0    rj
+1    rj
+2    rj
+3    rj
+4    rj
+5    rj
+6    rj
+7    rj
+8    rj
+Name: client, dtype: object, 'server': 0    pi
+1    pi
+2    pi
+3    pi
+4    pi
+5    pi
+6    pi
+7    pi
+8    pi
+Name: server, dtype: object, 'datahora': 0    2024-06-07 08:03:06
+1    2024-06-07 08:08:06
+2    2024-06-07 08:13:06
+3    2024-06-07 08:18:06
+4    2024-06-07 08:28:06
+5    2024-06-07 08:38:06
+6    2024-06-07 08:43:07
+7    2024-06-07 08:48:07
+8    2024-06-07 08:53:07
+Name: timestamp, dtype: object, 'latency': 0    41.84
+1    41.86
+2    41.83
+3    41.85
+4    38.10
+5    38.24
+6    38.20
+7    38.22
+8    41.87
+Name: rtt, dtype: float64}
+
+
+Pergunta: Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?
+Resultado do processamento: {'worst_client': 'ba', 'worst_client_mean_qoe': 3.159429402492357}
+
+
+Pergunta: Qual servidor fornece a QoE mais consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?        
+Resultado do processamento: {'qoe_variance': {'ce': 0.03180962402563327, 'df': 0.028072240357539146, 'es': 1067459804.530213, 'pi': 0.013866611458790644}, 'best_qoe_variance': {0.013866611458790644, 'pi'}}
+
+
+Pergunta: Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?
+Resultado do processamento: {'server_change_strategy': 0     df
+1     pi
+2     ce
+3     pi
+4     es
+5     df
+6     pi
+7     ce
+8     es
+9     pi
+10    ce
+11    es
+12    df
+13    pi
+14    ce
+15    df
+16    ce
+17    es
+18    df
+19    pi
+20    ce
+21    es
+22    pi
+23    ce
+24    df
+25    pi
+26    es
+27    df
+28    pi
+29    ce
+30    df
+31    es
+Name: server, dtype: object, 'datahora': 0     2024-06-07 08:02:36
+1     2024-06-07 08:03:06
+2     2024-06-07 08:03:36
+3     2024-06-07 08:08:06
+4     2024-06-07 08:09:06
+5     2024-06-07 08:12:36
+6     2024-06-07 08:13:06
+7     2024-06-07 08:13:36
+8     2024-06-07 08:14:06
+9     2024-06-07 08:18:06
+10    2024-06-07 08:23:36
+11    2024-06-07 08:24:06
+12    2024-06-07 08:27:36
+13    2024-06-07 08:28:06
+14    2024-06-07 08:28:36
+15    2024-06-07 08:32:36
+16    2024-06-07 08:33:36
+17    2024-06-07 08:34:06
+18    2024-06-07 08:37:36
+19    2024-06-07 08:38:06
+20    2024-06-07 08:38:36
+21    2024-06-07 08:39:07
+22    2024-06-07 08:43:07
+23    2024-06-07 08:43:37
+24    2024-06-07 08:47:36
+25    2024-06-07 08:48:07
+26    2024-06-07 08:49:06
+27    2024-06-07 08:52:36
+28    2024-06-07 08:53:07
+29    2024-06-07 08:53:37
+30    2024-06-07 08:57:37
+31    2024-06-07 08:59:06
+Name: datahora, dtype: object, 'QoE': 0         1.872257
+1         0.444832
+2         1.084605
+3         0.657179
+4       161.743379
+5         1.849747
+6         0.384164
+7         1.205509
+8       237.582910
+9         0.587807
+10        1.450769
+11      941.677970
+12        2.166972
+13        0.515596
+14        1.193081
+15        1.847289
+16        0.928922
+17    87033.353095
+18        2.015926
+19        0.461205
+20        1.015614
+21        0.000000
+22        0.738837
+23        1.214330
+24        2.050372
+25        0.482957
+26     1730.859334
+27        2.316695
+28        0.416622
+29        0.911916
+30        2.095277
+31      560.521167
+Name: QoE, dtype: float64}
+
+
+Pergunta: Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre as 08 e 09h do dia 07/06/2024?
+Resultado do processamento: {'QoE': 0    0.444832
+1    0.657179
+2    0.384164
+3    0.587807
+4    0.515596
+5    0.461205
+6    0.738837
+7    0.482957
+8    0.416622
+Name: QoE, dtype: float64, 'new_QoE': 0    0.444820
+1    0.657173
+2    0.384150
+3    0.587796
+4    0.513601
+5    0.459494
+6    0.736061
+7    0.481154
+8    0.416622
+Name: new_QoE, dtype: float64}
+
+
+Pergunta: Qual o endereço de IP do cliente rj na rede?
+Resultado do processamento: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
+
+
+Pergunta: Qual é a previsão do tempo para amanhã?
+Resultado do processamento: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
+
+
+Com base neles, ajuste o system_prompt_4 abaixo para que ele dê a melhor resposta em linguagem natural para cada pergunta. Considere que a pergunta também está no dicionário prosseced_data. No system_prompt_4, crie um exemplo para cada situação que foi apresentada.
+
+system_prompt_4 = """
+        You are an AI tasked with generating a natural language response based on the processed data. Use the processed data to generate a coherent response.
+
+        Processed Data:
+        {processed_data}
+    """
+
+
