@@ -162,7 +162,7 @@ def step_3_process_with_flags(flags):
         processed_data['datahora'] = best_server_df['datahora']
         processed_data['QoE'] = best_server_df['QoE']
 
-    if flags.qoe_change:
+    elif flags.qoe_change:
         # Adicionar colunas normalizadas ao matching_df
         df_1 = aux_adicionar_normalizacao(matching_df)
 
