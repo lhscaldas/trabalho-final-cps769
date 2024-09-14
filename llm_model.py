@@ -2,6 +2,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from auxiliary_functions import *
+import json
 
 import os
 from env import OPENAI_API_KEY
@@ -12,7 +13,7 @@ os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 # Inicialização do modelo de linguagem
 llm = ChatOpenAI(
     model="gpt-4o-mini",
-    temperature=0
+    temperature=0.1
     )
 
 class LogicalSteps(BaseModel):
@@ -247,11 +248,11 @@ def step_3_process_with_flags(question, flags):
 
         df = df.reset_index(drop=True)
 
-        processed_data['client'] = df['client']
-        processed_data['server'] = df['server']
-        processed_data['datahora_inicio'] = df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora)
-        processed_data['datahora_final'] = df['timestamp_final'].apply(aux_convert_timestamp_to_datahora)
-        processed_data['bitrate_bursts'] =  df['bitrate_medio']
+        processed_data['client'] = flags.client
+        processed_data['server'] = flags.server
+        df['datahora_inicio'] = df['timestamp_inicio'].apply(aux_convert_timestamp_to_datahora).to_json()
+        df['datahora_final'] = df['timestamp_final'].apply(aux_convert_timestamp_to_datahora).to_json()
+        processed_data['bitrate_bursts'] =  df[['datahora_inicio','datahora_final','bitrate_medio']].to_json()
 
     # Flag para responder a latência para as rajadas de bitrate
     elif flags.latency_match:
@@ -264,10 +265,10 @@ def step_3_process_with_flags(question, flags):
 
         df = df.reset_index(drop=True)
 
-        processed_data['client'] = df['client']
-        processed_data['server'] = df['server']
-        processed_data['datahora'] = df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-        processed_data['latency'] =  df['rtt']
+        processed_data['client'] = flags.client
+        processed_data['server'] = flags.server
+        df['datahora'] = df['timestamp'].apply(aux_convert_timestamp_to_datahora).to_json()
+        processed_data['latency'] =  df[['datahora','bitrate','rtt']].to_json()
     
     # Flag para calcular a QoE e encontrar o pior cliente
     elif flags.worst_qoe_client:
@@ -322,6 +323,7 @@ def step_3_process_with_flags(question, flags):
         min_key = min(variance_by_server, key=variance_by_server.get)
         min_value = variance_by_server[min_key]
         processed_data['best_qoe_variance'] = {min_key, min_value}
+        processed_data['client'] = flags.client
 
     # Flag para calcular a estratégia de mudança de servidor
     elif flags.server_change_strategy:
@@ -350,10 +352,11 @@ def step_3_process_with_flags(question, flags):
         # Resetar o índice do DataFrame resultante
         best_server_df.reset_index(drop=True, inplace=True)
 
-        best_server_df['datahora'] = best_server_df['timestamp'].apply(aux_convert_timestamp_to_datahora)
-        processed_data['server_change_strategy'] = best_server_df['server']
-        processed_data['datahora'] = best_server_df['datahora']
-        processed_data['QoE'] = best_server_df['QoE']
+        best_server_df['datahora'] = best_server_df['timestamp'].apply(aux_convert_timestamp_to_datahora).to_json()
+        processed_data['server_change_strategy'] = best_server_df['server'].to_json()
+        processed_data['datahora'] = best_server_df['datahora'].to_json()
+        processed_data['QoE'] = best_server_df['QoE'].to_json()
+        processed_data['client'] = flags.client
 
     elif flags.qoe_change:
         # Adicionar colunas normalizadas ao matching_df
@@ -403,8 +406,11 @@ def step_3_process_with_flags(question, flags):
         df['new_rtt_normalizado'] = df_2['rtt_normalizado']
         df['new_QoE'] = df_2['QoE']
 
-        processed_data['QoE'] = df['QoE']
-        processed_data['new_QoE'] = df['new_QoE']
+        processed_data['QoE'] = df['QoE'].to_json()
+        processed_data['new_QoE'] = df['new_QoE'].to_json()
+
+        processed_data['client'] = flags.client
+        processed_data['server'] = flags.server
 
     # Caso não entre em nenhum if, a pergunta não foi compreendida
     else:
@@ -418,88 +424,77 @@ class NaturalLanguageResponse(BaseModel):
     response: str = Field(description="Natural language response to the user's query")
 
 def step_4_generate_response(processed_data):
-    """Step 4: Geração de Resposta em Linguagem Natural"""
+    # Extrair os dados do processed_data para passar ao template
+    data = {
+        'question': processed_data.get('question', 'Pergunta não fornecida'),
+        'client': processed_data.get('client', 'Cliente não especificado'),
+        'server': processed_data.get('server', 'Servidor não especificado'),
+        'datahora_inicio': processed_data.get('datahora_inicio', 'Data de início não disponível'),
+        'datahora_final': processed_data.get('datahora_final', 'Data de final não disponível'),
+        'datahora': processed_data.get('datahora', 'Data não disponível'),
+        'bitrate_bursts': processed_data.get('bitrate_bursts', 'Bitrate não disponível'),
+        'latency': processed_data.get('latency', 'Latência não disponível'),
+        'worst_client': processed_data.get('worst_client', 'Cliente não disponível'),
+        'worst_client_mean_qoe': processed_data.get('worst_client_mean_qoe', 'QoE não disponível'),
+        'QoE': processed_data.get('QoE', 'QoE não disponível'),
+        'new_QoE': processed_data.get('new_QoE', 'QoE nova não disponível'),
+        'qoe_variance': processed_data.get('qoe_variance', 'Variação da QoE não disponível'),
+        'best_qoe_variance': processed_data.get('best_qoe_variance', 'Melhor QoE não disponível'),
+        'server_change_strategy': processed_data.get('server_change_strategy', 'Estratégia de troca de servidor não disponível'),
+        'info': processed_data.get('info', 'Informação não disponível'),
+        'processed_data': processed_data
+    }
+
     system_prompt_4 = """
-        You are an AI tasked with generating a natural language response based on the processed data. Use the processed data to generate a coherent and contextually accurate response to the user's question.
+        You are an AI tasked with generating a natural language response based on the processed data. Use the data to generate a coherent and contextually accurate response to the user's question.
 
         **Guidelines**:
-        1. Always generate a response based on the `processed_data`.
-        2. If the question is unrelated to the available database, respond appropriately by indicating that the information is not available in the network measurement data.
-        3. For calculations such as averages, variance, or other metrics, provide a summary in clear, concise language.
-        4. Include relevant details such as time periods, clients, or servers when applicable.
+        1. Always generate a response based on the data given. Ensure that all possible variables (e.g., 'QoE', 'worst_client', 'qoe_variance', 'bitrate_bursts', etc.) are referenced using placeholders like `{client}`, `{server}`, etc.
+        2. If a variable is missing, assume it's not relevant to the question and skip it in the response.
+        3. Always include the user's question in the final response by referencing `{question}`.
 
-        **Examples**:
+        **Response Examples**:
 
-        1. **Question**: "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'client': ..., 'server': ..., 'bitrate_bursts': ...}
-        - **Response**: 
-            "Entre 08:00 e 09:00 do dia 07/06/2024, o bitrate médio dentro de cada rajada para o cliente 'rj' e o servidor 'pi' foi calculado da seguinte maneira:
-            - 08:03:05 a 08:03:08: 281896.67 bps
-            - 08:08:05 a 08:08:07: 318607.07 bps
-            - 08:13:05 a 08:13:08: 271408.00 bps
-            - 08:18:05 a 08:18:08: 306599.33 bps
-            - 08:23:05 a 08:23:08: 305519.53 bps
-            - E assim por diante."
+        User: "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o bitrate médio dentro de cada rajada foi:
+            - {datahora_inicio}: {bitrate_bursts} bps."
 
-        2. **Question**: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'client': ..., 'server': ..., 'latency': ...}
-        - **Response**: 
-            "Entre 08:00 e 09:00 do dia 07/06/2024, as latências que coincidiram com as rajadas de bitrate para o cliente 'rj' e o servidor 'pi' foram as seguintes:
-            - 08:03:06: 41.84 ms
-            - 08:08:06: 41.86 ms
-            - 08:13:06: 41.83 ms
-            - 08:18:06: 41.85 ms
-            - 08:28:06: 38.10 ms
-            - E assim por diante."
+        User: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, as latências que coincidiram com as rajadas de bitrate foram as seguintes:
+            - {datahora}: {latency} ms."
 
-        3. **Question**: "Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'worst_client': 'ba', 'worst_client_mean_qoe': ...}
-        - **Response**: 
-            "Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi 'ba', com uma média de QoE de 3.16."
+        User: "Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi '{worst_client}', com uma média de QoE de {worst_client_mean_qoe}."
 
-        4. **Question**: "Qual servidor fornece a QoE mais consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'qoe_variance': ..., 'best_qoe_variance': ...}
-        - **Response**: 
-            "Entre 08:00 e 09:00 do dia 07/06/2024, o servidor 'pi' forneceu a QoE mais consistente para o cliente 'rj', com a menor variação de QoE de 0.0139."
+        User: "Qual servidor fornece a QoE mais consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o servidor '{qoe_variance}' forneceu a QoE mais consistente para o cliente '{client}', com a menor variação de QoE de {qoe_variance}."
 
-        5. **Question**: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'server_change_strategy': ..., 'QoE': ...}
-        - **Response**: 
-            "Entre 08:00 e 09:00 do dia 07/06/2024, a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente 'rj' é a seguinte:
-            - De 08:02:36 a 08:03:06: Servidor 'df'
-            - De 08:03:06 a 08:03:36: Servidor 'pi'
-            - De 08:03:36 a 08:08:06: Servidor 'ce'
-            - E assim por diante."
+        User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente '{client}' é a seguinte:
+            - De {datahora}: Servidor '{server_change_strategy}'
 
-        6. **Question**: "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre as 08 e 09h do dia 07/06/2024?"
-        - **Processed Data**: {'QoE': ..., 'new_QoE': ...}
-        - **Response**: 
-            "Se a latência aumentar 20% entre 08:00 e 09:00 do dia 07/06/2024 para o cliente 'rj' e servidor 'pi', a qualidade de experiência (QoE) mudaria da seguinte maneira:
-            - 08:03:06: De 0.4448 para 0.4448
-            - 08:08:06: De 0.6572 para 0.6572
-            - 08:13:06: De 0.3842 para 0.3842
-            - E assim por diante."
+        User: "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre as 08 e 09h do dia 07/06/2024?"
+        AI: Se a latência aumentar 20% entre 08:00 e 09:00 do dia 07/06/2024 para o cliente '{client}' e servidor '{server}', a qualidade de experiência (QoE) mudaria da seguinte maneira:
+            - {datahora}: De {QoE} para {new_QoE}."
 
-        7. **Question**: "Qual o endereço de IP do cliente rj na rede?"
-        - **Processed Data**: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
-        - **Response**: 
-            "A pergunta não está relacionada aos dados de medições de rede disponíveis no banco de dados."
+        User: "Qual o endereço de IP do cliente rj na rede?"
+        AI: {info}."
 
-        8. **Question**: "Qual é a previsão do tempo para amanhã?"
-        - **Processed Data**: {'info': 'A pergunta não está relacionada ao banco de dados disponível.'}
-        - **Response**: 
-            "A pergunta não está relacionada aos dados de medições de rede disponíveis no banco de dados."
+        User: "Qual é a previsão do tempo para amanhã?"
+        AI: {info}."
 
         **Final Instructions**:
-        - Always adapt the response based on the question and the specific `processed_data` provided.
+        - Always adapt the response based on the question and the specific data provided.
         - Ensure clarity and coherence in the final response.
-        - Include relevant details such as time periods, clients, servers, or calculated metrics in the response.
     """
-    
+
+    # Cria o template com as variáveis extraídas
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt_4), ("human", "{processed_data}")])
     response_llm = prompt | llm.with_structured_output(NaturalLanguageResponse)
-    response = response_llm.invoke(processed_data)
-    return response
+    response = response_llm.invoke(data)
+
+    return response.response
+
 
 def responder_pergunta(pergunta):
     """Função principal que executa todo o encadeamento para responder a pergunta do usuário."""

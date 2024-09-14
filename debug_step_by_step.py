@@ -1,6 +1,7 @@
 from llm_model import *
+import json
 
-def print_logical_steps(question, logical_steps):
+def print_logical_steps(logical_steps):
     """Função auxiliar para depurar e imprimir os passos lógicos da saída do step_1."""
     
     # Imprime os passos lógicos, um por linha
@@ -46,6 +47,7 @@ def debug_step_3(pergunta):
     print(f"Resultado do processamento: {processed_data}")
     print("\n")
 
+
 def debug_step_4(pergunta):
     """Função para testar o step_4_generate_answer com uma pergunta."""
     
@@ -88,7 +90,7 @@ if __name__ == "__main__":
         # debug_step_3(pergunta)
         debug_step_4(pergunta)
 
-    for pergunta in perguntas_fora_escopo:
-        # Imprime a pergunta
-        print(f"Pergunta: {pergunta}")
-        debug_step_4(pergunta)
+    # for pergunta in perguntas_fora_escopo:
+    #     # Imprime a pergunta
+    #     print(f"Pergunta: {pergunta}")
+    #     debug_step_4(pergunta)
