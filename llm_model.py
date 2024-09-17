@@ -411,6 +411,7 @@ def step_3_process_with_flags(question, flags):
 
         processed_data['client'] = flags.client
         processed_data['server'] = flags.server
+        processed_data['datahora'] = df['timestamp'].apply(aux_convert_timestamp_to_datahora).to_json()
 
     # Caso não entre em nenhum if, a pergunta não foi compreendida
     else:
@@ -456,12 +457,20 @@ def step_4_generate_response(processed_data):
         **Response Examples**:
 
         User: "Qual o bitrate médio dentro de cada rajada para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        Input Data: {datahora_inicio},  {bitrate_bursts}
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, o bitrate médio dentro de cada rajada foi:
-            - {datahora_inicio}: {bitrate_bursts} bps."
+            - "datahora_inicio_1: bitrate_1 bps."
+            - "datahora_inicio_2: bitrate_2 bps."
+            - "datahora_inicio_3: bitrate_3 bps."
+            ...
 
         User: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor pi no período entre as 08 e 09h do dia 07/06/2024?"
+        Input Data: {datahora}, {latency}
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, as latências que coincidiram com as rajadas de bitrate foram as seguintes:
-            - {datahora}: {latency} ms."
+            - "datahora_1: latency_1 bps."
+            - "datahora_2: latency_2 bps."
+            - "datahora_3: latency_3 bps."
+            ... 
 
         User: "Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi '{worst_client}', com uma média de QoE de {worst_client_mean_qoe}."
@@ -470,18 +479,28 @@ def step_4_generate_response(processed_data):
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, o servidor '{qoe_variance}' forneceu a QoE mais consistente para o cliente '{client}', com a menor variação de QoE de {qoe_variance}."
 
         User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        Input Data: {datahora}, {server_change_strategy}
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente '{client}' é a seguinte:
-            - De {datahora}: Servidor '{server_change_strategy}'
+            - datahora_1: server_change_strategy_1."
+            - datahora_2: server_change_strategy_2."
+            - datahora_3: server_change_strategy_3."
+            ...
 
         User: "Se a latência aumentar 20%, como isso afeta a QoE do cliente rj e servidor pi entre as 08 e 09h do dia 07/06/2024?"
+        Input Data: {datahora}, {QoE}, {new_QoE}
         AI: Se a latência aumentar 20% entre 08:00 e 09:00 do dia 07/06/2024 para o cliente '{client}' e servidor '{server}', a qualidade de experiência (QoE) mudaria da seguinte maneira:
-            - {datahora}: De {QoE} para {new_QoE}."
+            - datahora: De QoE_1 para new_QoE_1."
+            - datahora: De QoE_2 para new_QoE_2."
+            - datahora: De QoE_3 para new_QoE_3."
+            ...
 
         User: "Qual o endereço de IP do cliente rj na rede?"
-        AI: {info}."
+        Input Data: {info} = "Pergunta não compreendida."
+        AI: Não possuo em meu banco de dados o endereço de IP do cliente rj na rede. Por favor, ente outra pergunta relacionada à rede ou aos dados disponíveis."
 
         User: "Qual é a previsão do tempo para amanhã?"
-        AI: {info}."
+        Input Data: {info} = "Pergunta não compreendida."
+        AI: Desculpe, mas não tenho informações sobre a previsão do tempo. Por favor, ente outra pergunta relacionada à rede ou aos dados disponíveis."
 
         **Final Instructions**:
         - Always adapt the response based on the question and the specific data provided.
@@ -505,16 +524,21 @@ def responder_pergunta(pergunta):
     
     # 2. Geração de Flags
     print("Step 2: Gerando flags...")
-    flags = step_2_generate_flags(passos_logicos.steps)
+    flags = step_2_generate_flags(passos_logicos)
     
     # 4. Processamento dos Dados com base nas flags
     print("Step 3: Processando os dados com base nas flags...")
-    dados_processados = step_3_process_with_flags(pergunta, flags)
+    dados_processados, _ = step_3_process_with_flags(pergunta, flags)
     
     # 5. Geração de Resposta em Linguagem Natural
     print("Step 4: Gerando a resposta em linguagem natural...")
     resposta_final = step_4_generate_response(dados_processados)
+
+    # Imprime a resposta gerada
+    print(f"Resposta gerada: {resposta_final}")
+    print("\n")
+
     
-    return resposta_final.response
+    return resposta_final
 
 

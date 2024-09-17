@@ -1,5 +1,4 @@
 from llm_model import *
-import json
 
 def print_logical_steps(logical_steps):
     """Função auxiliar para depurar e imprimir os passos lógicos da saída do step_1."""
@@ -88,9 +87,9 @@ if __name__ == "__main__":
         # debug_step_1(pergunta)
         # debug_step_2(pergunta)
         # debug_step_3(pergunta)
-        debug_step_4(pergunta)
+        responder_pergunta(pergunta)
 
-    # for pergunta in perguntas_fora_escopo:
-    #     # Imprime a pergunta
-    #     print(f"Pergunta: {pergunta}")
-    #     debug_step_4(pergunta)
+    for pergunta in perguntas_fora_escopo:
+        # Imprime a pergunta
+        print(f"Pergunta: {pergunta}")
+        responder_pergunta(pergunta)
