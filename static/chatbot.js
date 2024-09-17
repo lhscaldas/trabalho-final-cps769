@@ -29,7 +29,19 @@ function appendMessage(sender, message, className) {
     const chatBox = document.getElementById('chat-box');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', className);
-    messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+
+    let avatarHtml = '';
+    if (className === 'user') {
+        avatarHtml = '<div class="avatar" style="background-color: #007BFF;"></div>';
+    } else {
+        avatarHtml = '<div class="avatar" style="background-color: #6c757d;"></div>';
+    }
+
+    messageElement.innerHTML = `
+        ${avatarHtml}
+        <div class="message-content">${message}</div>
+    `;
+
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;  // Rolagem automática para o final
 }
