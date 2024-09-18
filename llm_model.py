@@ -106,7 +106,7 @@ def step_1_comprehend_question(question):
 class FlagAndParams(BaseModel):
     """Estrutura para as flags geradas com base nos passos lógicos."""
     unrelated_to_db: bool = Field(default=False, description="Flag para indicar que a pergunta não está relacionada ao banco de dados")
-    bitrate_burts: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve estar na resposta")
+    bitrate_bursts: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve estar na resposta")
     latency_match: bool = Field(default=False, description="Flag para indicar se a latência média por rajada deve estar na resposta")
     worst_qoe_client: bool = Field(default=False, description="Flag para indicar se o cliente com a pior QoE deve estar na resposta")
     server_qoe_consistency: bool = Field(default=False, description="Flag para indicar se a consistência da QoE por servidor deve estar na resposta")
@@ -128,7 +128,7 @@ def step_2_generate_flags(logical_steps):
     Given the logical steps, generate flags to indicate the required calculations or to handle specific situations:
     
     - Set 'unrelated_to_db' to True if the question is not directly related to the available network measurement data in the database (e.g., IP addresses, network topology, or general knowledge like weather or geography).
-    - Set 'bitrate_burts' to True if the question involves calculating the average bitrate within bursts.
+    - Set 'bitrate_bursts' to True if the question involves calculating the average bitrate within bursts.
     - Set 'latency_match' to True if the question asks for latency values that match burst intervals from the 'bitrate_train' table.
     - Set 'worst_qoe_client' to True if the question requires identifying the client with the worst Quality of Experience (QoE) (i.e. to find the client with the worst video reception quality over time).
     - Set 'server_qoe_consistency' to True if the question asks for the consistency of QoE for a client across servers.
@@ -183,7 +183,7 @@ def step_2_generate_flags(logical_steps):
     1. Filter the 'bitrate_train' table for measurements related to client ba and server pi within the time period.
     2. Identify bursts by grouping measurements that occur within 5 seconds of each other.
     3. Calculate the average bitrate for each identified burst.
-    Flags: bitrate_burts = True, client = 'ba', server = 'pi', datahora_inicio = '2024-06-07 00:00:00', datahora_final = '2024-06-10 23:59:59'
+    Flags: bitrate_bursts = True, client = 'ba', server = 'pi', datahora_inicio = '2024-06-07 00:00:00', datahora_final = '2024-06-10 23:59:59'
 
     User: "Qual a latência nas medições que coincidem com a janela de tempo das rajadas de medição de bitrate para o cliente rj e o servidor df no período entre 2024-06-07 00:00:00 e 2024-06-10 23:59:59?"
     Logical Steps:
@@ -238,7 +238,7 @@ def step_3_process_with_flags(question, flags):
     matching_df = matching_df.reset_index(drop=True)
 
     # Flag para responder o bitrate médio por rajada
-    if flags.bitrate_burts:
+    if flags.bitrate_bursts:
         df = burts_df.copy()
 
         if flags.client != "":
