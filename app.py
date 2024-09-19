@@ -12,8 +12,16 @@ def index():
 def chat():
     dados = request.get_json()
     pergunta = dados.get('pergunta')
-    resposta = responder_pergunta(pergunta)
-    return jsonify({'resposta': resposta})
+    try:
+        # Tente processar a pergunta
+        resposta = responder_pergunta(pergunta)
+        return jsonify({'resposta': resposta})
+
+    except Exception as e:
+        # Retorna uma mensagem genérica para qualquer tipo de erro
+        return jsonify({
+            'erro': 'Ocorreu um erro ao processar a solicitação. Tente reformular a sua pergunta.'
+        }), 500  # HTTP status code 500 para erros gerais do servidor
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))  # Usa a porta fornecida pelo Render ou 5000 como fallback
