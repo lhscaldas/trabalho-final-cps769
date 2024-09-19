@@ -10,6 +10,9 @@ try:
     print("Chave de API carregada do env.py.")
 except ImportError:
     # Caso o arquivo env.py não exista, busque a chave das variáveis de ambiente (incluindo Secrets no Render)
+    print("Variáveis de ambiente disponíveis:")
+    for key, value in os.environ.items():
+        print(f"{key}: {value[:4]}***")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     if OPENAI_API_KEY:
         print(f"Chave de API carregada das variáveis de ambiente: {OPENAI_API_KEY[:4]}***")
