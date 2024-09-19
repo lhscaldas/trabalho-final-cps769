@@ -28,7 +28,7 @@ A tarefa foi motivada por um data challenge do Comitê Técnico de Monitoramento
 - Flask
 
 ## Website
-Para interagir com a LLM, acesse [nome](link).
+Para interagir com a LLM, acesse [Chatbot de CPS769](https://trabalho-final-cps769.onrender.com/).
 
 ## Dados Fornecidos
 Dois arquivos CSV são fornecidos:
