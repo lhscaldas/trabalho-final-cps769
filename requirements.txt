@@ -1,4 +1,5 @@
 langchain_core
 langchain_openai
 flask
+gunicorn
 pandas
