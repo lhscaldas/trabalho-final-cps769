@@ -24,9 +24,11 @@ A tarefa foi motivada por um data challenge do Comitê Técnico de Monitoramento
 - Pandas
 - Seaborn
 - SQLite3
-- Scikit-Learn
 - Lang Chain
-- Django
+- Flask
+
+## Website
+Para interagir com a LLM, acesse [nome](link).
 
 ## Dados Fornecidos
 Dois arquivos CSV são fornecidos:
