@@ -2,6 +2,3 @@ langchain_core
 langchain_openai
 flask
 pandas
-sqlite3
-time
-datetime
