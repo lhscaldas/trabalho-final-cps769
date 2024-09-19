@@ -4,21 +4,25 @@ from langchain_core.prompts import ChatPromptTemplate
 from auxiliary_functions import *
 import os
 
+# Tente carregar a chave da API do arquivo env.py (apenas localmente)
 try:
-    # Tentativa de carregar a chave do arquivo env.py (somente no ambiente local)
     from env import OPENAI_API_KEY
     print("Chave de API carregada do env.py.")
 except ImportError:
-    # Caso o arquivo env.py não exista (como no Render), a chave de API já estará definida no ambiente
+    # Caso o arquivo env.py não exista, busque a chave das variáveis de ambiente (incluindo Secrets no Render)
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    print("Chave de API carregada das variáveis de ambiente do sistema.")
+    if OPENAI_API_KEY:
+        print(f"Chave de API carregada das variáveis de ambiente: {OPENAI_API_KEY[:4]}***")
+    else:
+        print("A variável OPENAI_API_KEY não foi encontrada nas variáveis de ambiente ou secrets.")
 
-# Configuração da chave de API no ambiente
+# Verificação para garantir que a chave foi carregada corretamente
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
     print("API Key configurada com sucesso.")
 else:
     raise EnvironmentError("A variável OPENAI_API_KEY não está definida!")
+
 
 # Inicialização do modelo de linguagem
 llm = ChatOpenAI(
