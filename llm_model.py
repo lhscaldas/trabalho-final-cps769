@@ -68,12 +68,27 @@ def step_1_comprehend_question(question):
         4. Calculate QoE for each client over time.
         5. Identify the client with the lowest average QoE.
 
+        User: "Qual cliente tem a melhor qualidade de recepção de vídeo ao longo do tempo?"
+        Logical Steps:
+        1. Calculate QoE for each client using 'bitrate_train' and 'rtt_train'.
+        2. Ensure that QoE is only calculated when latency matches a burst of bitrate.
+        3. Normalize both the bitrate and latency.
+        4. Calculate QoE for each client over time.
+        5. Identify the client with the highest average QoE.
+
         User: "Qual servidor fornece a QoE mais consistente?"
         Logical Steps:
         1. Calculate QoE for each server using 'bitrate_train' and 'rtt_train'.
         2. Ensure QoE is only calculated when latency matches a burst of bitrate.
         3. Calculate the variance of QoE for each server.
         4. Identify the server with the lowest variance.
+
+        User: "Qual servidor fornece a QoE menos consistente?"
+        Logical Steps:
+        1. Calculate QoE for each server using 'bitrate_train' and 'rtt_train'.
+        2. Ensure QoE is only calculated when latency matches a burst of bitrate.
+        3. Calculate the variance of QoE for each server.
+        4. Identify the server with the highest variance.
 
         User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente ba?"
         Logical Steps:
@@ -122,8 +137,10 @@ class FlagAndParams(BaseModel):
     unrelated_to_db: bool = Field(default=False, description="Flag para indicar que a pergunta não está relacionada ao banco de dados")
     bitrate_bursts: bool = Field(default=False, description="Flag para indicar se a média do bitrate por rajada deve estar na resposta")
     latency_match: bool = Field(default=False, description="Flag para indicar se a latência média por rajada deve estar na resposta")
+    best_qoe_client: bool = Field(default=False, description="Flag para indicar se o cliente com a melhor QoE deve estar na resposta")
     worst_qoe_client: bool = Field(default=False, description="Flag para indicar se o cliente com a pior QoE deve estar na resposta")
-    server_qoe_consistency: bool = Field(default=False, description="Flag para indicar se a consistência da QoE por servidor deve estar na resposta")
+    best_qoe_consistency_server: bool = Field(default=False, description="Flag para indicar se o servidor com a melhor a consistência da QoE deve estar na resposta")
+    worst_qoe_consistency_server: bool = Field(default=False, description="Flag para indicar se o servidor com a pior a consistência da QoE deve estar na resposta")
     server_change_strategy: bool = Field(default=False, description="Flag para indicar se a estratégia de mudança de servidor deve estar na resposta")
     qoe_change: bool = Field(default=False, description="Flag para indicar se a mudança de QoE com a variação de bitrate ou de rtt deve estar na resposta")
     datahora_inicio: str = Field(default="2024-06-07 00:00:00", description="Data de início do intervalo de tempo")
@@ -167,6 +184,15 @@ def step_2_generate_flags(logical_steps):
     5. Identify the client with the lowest average QoE.
     Flags: worst_qoe_client = True
 
+    User: "Qual cliente tem a pior qualidade de recepção de vídeo ao longo do tempo?"
+    Logical Steps:
+    1. Calculate QoE for each client using bitrate from 'bitrate_train' and latency (RTT) from 'rtt_train'.
+    2. Normalize both the bitrate and latency.
+    3. Ensure that the QoE is only calculated when the latency coincides with a burst of bitrate.
+    4. Calculate QoE for each client over time.
+    5. Identify the client with the highest average QoE.
+    Flags: best_qoe_client = True
+
     User: "Qual servidor fornece a QoE mais consistente?"
     Logical Steps:
     1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
@@ -174,7 +200,16 @@ def step_2_generate_flags(logical_steps):
     3. Ensure that QoE is only calculated when the latency coincides with a burst of bitrate.
     4. Calculate the variance of QoE for each server.
     5. Identify the server with the lowest variance in QoE.
-    Flags: server_qoe_consistency = True
+    Flags:  best_qoe_consistency_server = True
+
+    User: "Qual servidor fornece a QoE mais consistente?"
+    Logical Steps:
+    1. Calculate QoE for each server based on clients connected to it, using the 'bitrate_train' and 'rtt_train' tables.
+    2. Normalize both the bitrate and latency.
+    3. Ensure that QoE is only calculated when the latency coincides with a burst of bitrate.
+    4. Calculate the variance of QoE for each server.
+    5. Identify the server with the highest variance in QoE.
+    Flags:  worst_qoe_consistency_server = True
 
     User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente ba?"
     Logical Steps:
@@ -285,7 +320,7 @@ def step_3_process_with_flags(question, flags):
         processed_data['latency'] =  df[['datahora','bitrate','rtt']].to_json()
     
     # Flag para calcular a QoE e encontrar o pior cliente
-    elif flags.worst_qoe_client:
+    elif flags.worst_qoe_client or flags.best_qoe_client:
         # Adicionar colunas normalizadas ao matching_df
         df = aux_adicionar_normalizacao(matching_df)
 
@@ -307,12 +342,17 @@ def step_3_process_with_flags(question, flags):
 
         # Encontrar o cliente com a pior QoE
         worst_client = min(qoe_by_client, key=qoe_by_client.get)
+        best_client = max(qoe_by_client, key=qoe_by_client.get)
 
-        processed_data['worst_client'] = worst_client
-        processed_data['worst_client_mean_qoe'] = qoe_by_client[worst_client]
+        if flags.best_qoe_client:
+            processed_data['best_client'] = best_client
+            processed_data['best_client_mean_qoe'] = qoe_by_client[best_client]
+        elif flags.worst_qoe_client:
+            processed_data['worst_client'] = worst_client
+            processed_data['worst_client_mean_qoe'] = qoe_by_client[worst_client]
 
     # Flag para calcular a consistência da QoE por servidor
-    elif flags.server_qoe_consistency:
+    elif flags.best_qoe_consistency_server or flags.worst_qoe_consistency_server:
         # Adicionar colunas normalizadas ao matching_df
         df = aux_adicionar_normalizacao(matching_df)
 
@@ -333,11 +373,20 @@ def step_3_process_with_flags(question, flags):
         # Calcular a variância da QoE por servidor
         variance_by_server = df.groupby('server')['QoE'].var().to_dict()
 
-        processed_data['qoe_variance'] = variance_by_server
-        min_key = min(variance_by_server, key=variance_by_server.get)
-        min_value = variance_by_server[min_key]
-        processed_data['best_qoe_variance'] = {min_key, min_value}
-        processed_data['client'] = flags.client
+        if flags.best_qoe_consistency_server:
+            processed_data['client'] = flags.client
+            processed_data['qoe_variance'] = variance_by_server
+            min_key = min(variance_by_server, key=variance_by_server.get)
+            processed_data['best_qoe_variance_server'] = min_key
+            min_value = variance_by_server[min_key]
+            processed_data['best_qoe_variance'] =  min_value
+        elif flags.worst_qoe_consistency_server:
+            processed_data['client'] = flags.client
+            processed_data['qoe_variance'] = variance_by_server
+            max_key = max(variance_by_server, key=variance_by_server.get)
+            processed_data['worst_qoe_variance_server'] = max_key
+            max_value = variance_by_server[max_key]
+            processed_data['worst_qoe_variance'] = max_value
 
     # Flag para calcular a estratégia de mudança de servidor
     elif flags.server_change_strategy:
@@ -451,10 +500,14 @@ def step_4_generate_response(processed_data):
         'latency': processed_data.get('latency', 'Latência não disponível'),
         'worst_client': processed_data.get('worst_client', 'Cliente não disponível'),
         'worst_client_mean_qoe': processed_data.get('worst_client_mean_qoe', 'QoE não disponível'),
+        'best_client': processed_data.get('best_client', 'Cliente não disponível'),
+        'best_client_mean_qoe': processed_data.get('best_client_mean_qoe', 'QoE não disponível'),
         'QoE': processed_data.get('QoE', 'QoE não disponível'),
         'new_QoE': processed_data.get('new_QoE', 'QoE nova não disponível'),
-        'qoe_variance': processed_data.get('qoe_variance', 'Variação da QoE não disponível'),
         'best_qoe_variance': processed_data.get('best_qoe_variance', 'Melhor QoE não disponível'),
+        'worst_qoe_variance': processed_data.get('worst_qoe_variance', 'Serviodor com pior QoE não disponível'),
+        'best_qoe_variance_server': processed_data.get('best_qoe_variance_server', 'Melhor QoE não disponível'),
+        'worst_qoe_variance_server': processed_data.get('worst_qoe_variance_server', 'Servidor com pior QoE não disponível'),
         'server_change_strategy': processed_data.get('server_change_strategy', 'Estratégia de troca de servidor não disponível'),
         'info': processed_data.get('info', 'Informação não disponível'),
         'processed_data': processed_data
@@ -489,8 +542,14 @@ def step_4_generate_response(processed_data):
         User: "Qual cliente tem a pior qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
         AI: Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi '{worst_client}', com uma média de QoE de {worst_client_mean_qoe}."
 
+        User: "Qual cliente tem a melhor qualidade de recepção de vídeo entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o cliente com a pior qualidade de recepção de vídeo foi '{worst_client}', com uma média de QoE de {best_client_mean_qoe}."
+
         User: "Qual servidor fornece a QoE mais consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?"
-        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o servidor '{qoe_variance}' forneceu a QoE mais consistente para o cliente '{client}', com a menor variação de QoE de {qoe_variance}."
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o servidor '{best_qoe_variance_server}' forneceu a QoE mais consistente para o cliente '{client}', com a menor variação de QoE de {best_qoe_variance}."
+
+        User: "Qual servidor fornece a QoE menos consistente para o cliente rj entre as 08 e 09h do dia 07/06/2024?"
+        AI: Entre 08:00 e 09:00 do dia 07/06/2024, o servidor '{worst_qoe_variance_server}' forneceu a QoE menos consistente para o cliente '{client}', com a menor variação de QoE de {worst_qoe_variance}."
 
         User: "Qual é a melhor estratégia de troca de servidor para maximizar a qualidade de experiência do cliente rj entre as 08 e 09h do dia 07/06/2024?"
         Input Data: {datahora}, {server_change_strategy}
