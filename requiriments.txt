@@ -1,0 +1,6 @@
+langchain_core
+langchain_openai
+flask
+pandassqlite3
+time
+datetime

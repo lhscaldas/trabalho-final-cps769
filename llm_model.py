@@ -2,7 +2,6 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from auxiliary_functions import *
-import json
 
 import os
 from env import OPENAI_API_KEY
