@@ -2,12 +2,23 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from auxiliary_functions import *
-
 import os
-from env import OPENAI_API_KEY
 
-# Configuração da chave de API
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+try:
+    # Tentativa de carregar a chave do arquivo env.py (somente no ambiente local)
+    from env import OPENAI_API_KEY
+    print("Chave de API carregada do env.py.")
+except ImportError:
+    # Caso o arquivo env.py não exista (como no Render), a chave de API já estará definida no ambiente
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    print("Chave de API carregada das variáveis de ambiente do sistema.")
+
+# Configuração da chave de API no ambiente
+if OPENAI_API_KEY:
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+    print("API Key configurada com sucesso.")
+else:
+    raise EnvironmentError("A variável OPENAI_API_KEY não está definida!")
 
 # Inicialização do modelo de linguagem
 llm = ChatOpenAI(
